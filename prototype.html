@@ -1,0 +1,2976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Capacity Planning</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --sidebar-w: 240px;
+    --sidebar-collapsed: 60px;
+    --header-h: 56px;
+    --primary: #1a56a0;
+    --primary-dark: #13417d;
+    --primary-light: #e8f0fb;
+    --accent: #0ea5e9;
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --neutral-50: #f8fafc;
+    --neutral-100: #f1f5f9;
+    --neutral-200: #e2e8f0;
+    --neutral-300: #cbd5e1;
+    --neutral-400: #94a3b8;
+    --neutral-500: #64748b;
+    --neutral-600: #475569;
+    --neutral-700: #334155;
+    --neutral-800: #1e293b;
+    --neutral-900: #0f172a;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --radius: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+  }
+  html, body { height: 100%; font-family: var(--font); background: var(--neutral-100); color: var(--neutral-800); font-size: 14px; }
+
+  /* ── Login Page ── */
+  #login-page {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1a3a6b 100%);
+  }
+  .login-card {
+    background: #fff; border-radius: 10px; padding: 40px 44px; width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .login-logo-icon {
+    width: 40px; height: 40px; background: var(--primary); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700;
+  }
+  .login-logo-text { font-size: 16px; font-weight: 600; color: var(--neutral-800); line-height: 1.2; }
+  .login-logo-text span { display: block; font-size: 11px; color: var(--neutral-500); font-weight: 400; }
+  .login-card h2 { font-size: 20px; font-weight: 600; color: var(--neutral-900); margin-bottom: 4px; }
+  .login-card p { font-size: 13px; color: var(--neutral-500); margin-bottom: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--neutral-600); margin-bottom: 5px; }
+  .form-group input {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--neutral-300); border-radius: var(--radius);
+    font-size: 14px; color: var(--neutral-800); outline: none; transition: border .15s;
+  }
+  .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,160,.12); }
+  .btn-primary {
+    width: 100%; padding: 10px; background: var(--primary); color: #fff; border: none;
+    border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .okta-badge {
+    margin-top: 20px; text-align: center; font-size: 12px; color: var(--neutral-400);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .okta-badge::before, .okta-badge::after { content: ''; flex: 1; height: 1px; background: var(--neutral-200); }
+  .okta-logo { font-weight: 700; color: #00297a; font-size: 13px; }
+
+  /* ── App Shell ── */
+  #app { display: none; height: 100vh; overflow: hidden; }
+
+  /* ── Header ── */
+  .app-header {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+    background: var(--primary); color: #fff; display: flex; align-items: center;
+    padding: 0 16px; z-index: 100; box-shadow: var(--shadow-md);
+  }
+  .header-toggle {
+    background: none; border: none; color: #fff; cursor: pointer; padding: 6px;
+    border-radius: 4px; display: flex; align-items: center; font-size: 20px; margin-right: 12px;
+  }
+  .header-toggle:hover { background: rgba(255,255,255,.15); }
+  .header-brand { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+  .header-brand span { font-weight: 300; margin-left: 4px; color: rgba(255,255,255,.75); font-size: 13px; }
+  .header-spacer { flex: 1; }
+  .header-user {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 5px 10px; border-radius: 20px; transition: background .15s;
+  }
+  .header-user:hover { background: rgba(255,255,255,.15); }
+  .header-avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
+  }
+  .header-username { font-size: 13px; }
+  .header-actions { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+  .header-icon-btn {
+    background: none; border: none; color: rgba(255,255,255,.8); cursor: pointer;
+    padding: 6px; border-radius: 4px; font-size: 16px; display: flex; align-items: center;
+  }
+  .header-icon-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+  /* ── Sidebar ── */
+  .app-sidebar {
+    position: fixed; top: var(--header-h); left: 0; bottom: 0;
+    width: var(--sidebar-w); background: var(--neutral-900); color: #fff;
+    transition: width .25s cubic-bezier(.4,0,.2,1); overflow: hidden; z-index: 90;
+    display: flex; flex-direction: column;
+  }
+  .app-sidebar.collapsed { width: var(--sidebar-collapsed); }
+  .nav-section-label {
+    padding: 18px 16px 6px; font-size: 10px; font-weight: 600; letter-spacing: 1px;
+    color: var(--neutral-500); text-transform: uppercase; white-space: nowrap;
+    overflow: hidden; opacity: 1; max-height: 36px;
+    transition: opacity .15s ease, max-height .25s ease, padding .25s ease;
+  }
+  .app-sidebar.collapsed .nav-section-label {
+    opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer;
+    border-left: 3px solid transparent; transition: background .12s, border-color .12s;
+    white-space: nowrap; overflow: hidden;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); }
+  .nav-item.active { background: rgba(26,86,160,.35); border-left-color: #60a5fa; }
+  .nav-item .nav-icon {
+    font-size: 17px; flex-shrink: 0; width: 22px; text-align: center;
+    color: var(--neutral-400);
+  }
+  .nav-item.active .nav-icon { color: #93c5fd; }
+  .nav-item .nav-label {
+    font-size: 13px; color: var(--neutral-300);
+    opacity: 1; transition: opacity .15s ease;
+  }
+  .app-sidebar.collapsed .nav-label { opacity: 0; }
+  .nav-item.active .nav-label { color: #dbeafe; font-weight: 500; }
+  .sidebar-footer { margin-top: auto; border-top: 1px solid rgba(255,255,255,.08); padding: 12px 0; }
+
+  /* ── Main Content ── */
+  .app-main {
+    margin-top: var(--header-h); margin-left: var(--sidebar-w);
+    transition: margin-left .22s ease; padding: 24px; overflow-y: auto;
+    height: calc(100vh - var(--header-h));
+  }
+  .app-main.sidebar-collapsed { margin-left: var(--sidebar-collapsed); }
+
+  /* ── Page Header ── */
+  .page-header { margin-bottom: 20px; }
+  .page-header h1 { font-size: 20px; font-weight: 600; color: var(--neutral-900); }
+  .page-header p { font-size: 13px; color: var(--neutral-500); margin-top: 2px; }
+  .breadcrumb { font-size: 12px; color: var(--neutral-400); margin-bottom: 8px; }
+  .breadcrumb span { color: var(--neutral-500); }
+
+  /* ── Cards ── */
+  .card {
+    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+    border: 1px solid var(--neutral-200);
+  }
+  .card-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--neutral-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--neutral-800); }
+  .card-body { padding: 16px 18px; }
+
+  /* ── Stat Cards ── */
+  .stat-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 20px; }
+  .stat-card {
+    background: #fff; border-radius: var(--radius); padding: 16px 18px;
+    box-shadow: var(--shadow); border: 1px solid var(--neutral-200);
+  }
+  .stat-label { font-size: 12px; color: var(--neutral-500); font-weight: 500; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 700; color: var(--neutral-900); }
+  .stat-sub { font-size: 12px; color: var(--neutral-400); margin-top: 3px; }
+  .stat-badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-top: 4px; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-yellow { background: #fef9c3; color: #a16207; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-gray { background: var(--neutral-200); color: var(--neutral-600); }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--neutral-50); padding: 10px 12px; text-align: left;
+    font-weight: 600; color: var(--neutral-600); border-bottom: 1px solid var(--neutral-200);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th:hover { background: var(--neutral-100); }
+  thead th .sort-icon { margin-left: 4px; color: var(--neutral-300); font-size: 11px; }
+  tbody tr { border-bottom: 1px solid var(--neutral-100); transition: background .1s; }
+  tbody tr:hover { background: var(--neutral-50); }
+  tbody td { padding: 9px 12px; color: var(--neutral-700); }
+  tbody tr:last-child { border-bottom: none; }
+
+  /* ── Filter Bar ── */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 14px 18px; border-bottom: 1px solid var(--neutral-200); background: var(--neutral-50);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .filter-bar select, .filter-bar input[type=text] {
+    padding: 6px 10px; border: 1px solid var(--neutral-300); border-radius: var(--radius);
+    font-size: 13px; color: var(--neutral-700); background: #fff; outline: none;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
+  .filter-label { font-size: 12px; font-weight: 500; color: var(--neutral-500); }
+  .btn { padding: 7px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: .12s; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-outline { background: #fff; border: 1px solid var(--neutral-300); color: var(--neutral-700); }
+  .btn-outline:hover { background: var(--neutral-100); border-color: var(--neutral-400); }
+  .btn-blue { background: var(--primary); color: #fff; }
+  .btn-blue:hover { background: var(--primary-dark); }
+  .btn-green { background: var(--success); color: #fff; }
+  .btn-green:hover { background: #15803d; }
+  .btn-red { background: var(--danger); color: #fff; }
+  .btn-red:hover { background: #b91c1c; }
+  .btn-yellow { background: #f59e0b; color: #fff; }
+  .btn-yellow:hover { background: #d97706; }
+
+  /* ── Progress Bar ── */
+  .progress-wrap { width: 100%; height: 7px; background: var(--neutral-200); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; }
+  .fill-green { background: var(--success); }
+  .fill-yellow { background: #f59e0b; }
+  .fill-red { background: var(--danger); }
+  .fill-blue { background: var(--accent); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; border-bottom: 2px solid var(--neutral-200); margin-bottom: 20px; gap: 0; }
+  .tab {
+    padding: 10px 18px; cursor: pointer; font-size: 13px; font-weight: 500;
+    color: var(--neutral-500); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .12s;
+  }
+  .tab:hover { color: var(--primary); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ── Section grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── Resource Upgrade ── */
+  .upgrade-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 12px; font-weight: 500; color: var(--neutral-600); margin-bottom: 4px; }
+  .form-field input, .form-field select, .form-field textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--neutral-300); border-radius: var(--radius);
+    font-size: 13px; color: var(--neutral-800); background: #fff; outline: none;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,160,.1); }
+  .form-field input[type=range] { padding: 4px 0; cursor: pointer; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-val { font-weight: 600; min-width: 48px; text-align: right; color: var(--primary); }
+
+  .comparison-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .comparison-table th, .comparison-table td { padding: 8px 12px; border: 1px solid var(--neutral-200); }
+  .comparison-table th { background: var(--neutral-50); font-weight: 600; color: var(--neutral-600); }
+  .comparison-table .before { color: var(--neutral-600); }
+  .comparison-table .after { color: var(--success); font-weight: 500; }
+  .comparison-table .change { color: var(--primary); font-weight: 600; }
+  .arrow { color: var(--neutral-300); }
+
+  /* ── Cluster utilization panel ── */
+  .util-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .util-label { width: 80px; font-size: 12px; color: var(--neutral-500); }
+  .util-bar-wrap { flex: 1; }
+  .util-pct { width: 42px; text-align: right; font-size: 12px; font-weight: 600; }
+  .util-pct.warn { color: var(--warning); }
+  .util-pct.danger { color: var(--danger); }
+  .util-pct.ok { color: var(--success); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 500; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    width: 720px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--neutral-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--neutral-400); padding: 4px; }
+  .modal-close:hover { color: var(--neutral-700); }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--neutral-200); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--neutral-900); color: #fff;
+    padding: 10px 18px; border-radius: var(--radius); font-size: 13px; box-shadow: var(--shadow-md);
+    opacity: 0; transform: translateY(8px); transition: .25s; z-index: 999; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: none; }
+  #toast.success { background: var(--success); }
+  #toast.warning { background: #d97706; }
+
+  /* ── Config page ── */
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .config-card { background: #fff; border: 1px solid var(--neutral-200); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .config-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--neutral-700); border-bottom: 1px solid var(--neutral-100); padding-bottom: 8px; }
+
+  /* ── Slot visualization ── */
+  .slot-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 14px 18px; }
+  .slot {
+    width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 600; cursor: pointer; transition: .12s;
+  }
+  .slot.used { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .slot.empty { background: var(--neutral-100); color: var(--neutral-400); border: 1px solid var(--neutral-200); }
+  .slot.maintenance { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+  .slot:hover { transform: scale(1.1); }
+
+  /* ── Status chip ── */
+  .status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .status-ok { background: #dcfce7; color: #15803d; }
+  .status-ok::before { background: var(--success); }
+  .status-warn { background: #fef9c3; color: #a16207; }
+  .status-warn::before { background: #f59e0b; }
+  .status-off { background: var(--neutral-200); color: var(--neutral-500); }
+  .status-off::before { background: var(--neutral-400); }
+  .status-maint { background: #ffedd5; color: #9a3412; }
+  .status-maint::before { background: #f97316; }
+
+  /* ── Pagination ── */
+  .pagination { display: flex; align-items: center; gap: 4px; padding: 12px 18px; justify-content: flex-end; border-top: 1px solid var(--neutral-200); }
+  .page-btn {
+    min-width: 30px; height: 30px; padding: 0 8px; border: 1px solid var(--neutral-200);
+    border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: var(--neutral-600);
+  }
+  .page-btn:hover { background: var(--neutral-100); }
+  .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── pages hidden ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── SNow queue ── */
+  .priority-critical { color: #b91c1c; font-weight: 600; }
+  .priority-high { color: #d97706; font-weight: 600; }
+  .priority-medium { color: #1d4ed8; }
+  .priority-low { color: var(--neutral-500); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     LOGIN PAGE
+══════════════════════════════ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">CP</div>
+      <div class="login-logo-text">
+        Capacity Planning
+        <span>Powered by Intersight &amp; vROPs</span>
+      </div>
+    </div>
+    <h2>Sign in</h2>
+    <p>Use your Okta credentials to continue</p>
+    <div class="form-group">
+      <label>Email / Username</label>
+      <input type="text" id="login-user" value="jsmith@company.com" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-pass" value="••••••••" />
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Sign In with Okta</button>
+    <div class="okta-badge">Secured by <span class="okta-logo">&nbsp;Okta&nbsp;</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     APP SHELL
+══════════════════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <button class="header-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+    <div class="header-brand">Capacity Planning <span>| Enterprise Dashboard</span></div>
+    <div class="header-spacer"></div>
+    <div class="header-actions">
+      <button class="header-icon-btn" title="Notifications" onclick="showToast('No new notifications','')">🔔</button>
+    </div>
+    <div class="header-user" onclick="showToast('Profile settings coming soon','')">
+      <div class="header-avatar">JS</div>
+      <span class="header-username">J. Smith</span>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="app-sidebar" id="sidebar">
+    <div class="nav-section-label">OVERVIEW</div>
+    <div class="nav-item active" data-page="dashboard" onclick="navigate(this,'dashboard')">
+      <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-section-label">INFRASTRUCTURE</div>
+    <div class="nav-item" data-page="domain-summary" onclick="navigate(this,'domain-summary')">
+      <span class="nav-icon">🗄️</span><span class="nav-label">Domain Summary</span>
+    </div>
+    <div class="nav-item" data-page="server-summary" onclick="navigate(this,'server-summary')">
+      <span class="nav-icon">🖥️</span><span class="nav-label">Server Summary</span>
+    </div>
+    <div class="nav-item" data-page="server-details" onclick="navigate(this,'server-details')">
+      <span class="nav-icon">🔍</span><span class="nav-label">Server Details</span>
+    </div>
+    <div class="nav-section-label">REQUESTS</div>
+    <div class="nav-item" data-page="resource-upgrade" onclick="navigate(this,'resource-upgrade')">
+      <span class="nav-icon">⬆️</span><span class="nav-label">Resource Upgrades</span>
+    </div>
+    <div class="nav-section-label">ANALYTICS</div>
+    <div class="nav-item" data-page="bu-usage" onclick="navigate(this,'bu-usage')">
+      <span class="nav-icon">🏢</span><span class="nav-label">BU Usage</span>
+    </div>
+    <div class="nav-item" data-page="infra-runway" onclick="navigate(this,'infra-runway')">
+      <span class="nav-icon">📈</span><span class="nav-label">Infra Runway</span>
+    </div>
+    <div class="nav-item" data-page="exec-dashboard" onclick="navigate(this,'exec-dashboard')">
+      <span class="nav-icon">🎯</span><span class="nav-label">Executive View</span>
+    </div>
+    <div class="nav-section-label">ADMINISTRATION</div>
+    <div class="nav-item" data-page="configuration" onclick="navigate(this,'configuration')">
+      <span class="nav-icon">⚙️</span><span class="nav-label">Configuration</span>
+    </div>
+    <div class="sidebar-footer">
+      <div class="nav-item" onclick="doLogout()">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="app-main" id="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="breadcrumb">Home</div>
+          <h1>Dashboard</h1>
+          <p>Overview of infrastructure capacity across all UCS domains</p>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--neutral-400);margin-top:4px">
+          <div>Last refreshed</div>
+          <div id="last-refreshed" style="color:var(--neutral-600);font-weight:500"></div>
+          <button class="btn btn-outline btn-sm" style="margin-top:6px;display:none" onclick="refreshDashboard()" aria-hidden="true">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Servers</div>
+          <div class="stat-value">1,284</div>
+          <div class="stat-sub">Blade + Rack</div>
+          <span class="stat-badge badge-blue">Active</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">UCS Domains</div>
+          <div class="stat-value">18</div>
+          <div class="stat-sub">Across 4 data centers</div>
+          <span class="stat-badge badge-green">All Healthy</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Chassis Slots Used</div>
+          <div class="stat-value">74%</div>
+          <div class="stat-sub">943 / 1,272 slots</div>
+          <span class="stat-badge badge-yellow">Moderate</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Upgrades</div>
+          <div class="stat-value">23</div>
+          <div class="stat-sub">12 Critical · 11 High</div>
+          <span class="stat-badge badge-red">Action needed</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg CPU Utilization</div>
+          <div class="stat-value">61%</div>
+          <div class="stat-sub">Cluster average</div>
+          <span class="stat-badge badge-yellow">Watch</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">SmartNet Expiring</div>
+          <div class="stat-value">47</div>
+          <div class="stat-sub">Within 90 days</div>
+          <span class="stat-badge badge-red">Urgent</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Cluster Resource Utilization</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" placeholder="Search cluster…" id="dash-cluster-search" oninput="renderDashClusters()" style="padding:5px 9px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px;width:160px" />
+            <select id="dash-cluster-loc" onchange="renderDashClusters()" style="padding:5px 8px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px">
+              <option value="">All Locations</option>
+              <option>Philadelphia DC1</option><option>Nashville DC2</option>
+              <option>Denver DC3</option><option>Phoenix DC4</option>
+            </select>
+            <select id="dash-cluster-sort" onchange="renderDashClusters()" style="padding:5px 8px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px">
+              <option value="cpu">Sort: CPU</option><option value="mem">Sort: Memory</option>
+              <option value="stor">Sort: Storage</option><option value="name">Sort: Name</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cluster</th><th>Location</th><th>Domain</th><th>VMs</th>
+              <th>CPU Util.</th><th>Memory Util.</th><th>Storage Util.</th><th>Health</th></tr></thead>
+            <tbody id="dash-cluster-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="dash-cluster-pagination"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">Servers by Location</span></div>
+        <div class="card-body" style="padding:0">
+          <table><thead><tr><th>Location</th><th>Blade</th><th>Rack</th><th>Total</th><th>Utilization</th></tr></thead>
+          <tbody>
+            <tr><td>Philadelphia DC1</td><td>312</td><td>145</td><td>457</td><td><div class="progress-wrap" style="width:80px"><div class="progress-fill fill-yellow" style="width:65%"></div></div></td></tr>
+            <tr><td>Nashville DC2</td><td>218</td><td>97</td><td>315</td><td><div class="progress-wrap" style="width:80px"><div class="progress-fill fill-red" style="width:81%"></div></div></td></tr>
+            <tr><td>Denver DC3</td><td>176</td><td>88</td><td>264</td><td><div class="progress-wrap" style="width:80px"><div class="progress-fill fill-green" style="width:48%"></div></div></td></tr>
+            <tr><td>Phoenix DC4</td><td>160</td><td>88</td><td>248</td><td><div class="progress-wrap" style="width:80px"><div class="progress-fill fill-yellow" style="width:57%"></div></div></td></tr>
+          </tbody></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+          <button class="btn btn-sm btn-outline">View All</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Timestamp</th><th>Type</th><th>VM / Server</th><th>Change</th><th>Requester</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-17 09:14</td><td>CPU Upgrade</td><td>vm-prod-db-042</td><td>8 → 16 vCPU</td><td>A. Patel</td><td><span class="status status-ok">Approved</span></td></tr>
+              <tr><td>2026-04-16 15:32</td><td>Memory Upgrade</td><td>vm-app-web-017</td><td>32 → 64 GB</td><td>B. Chen</td><td><span class="status status-warn">Pending</span></td></tr>
+              <tr><td>2026-04-16 11:05</td><td>Storage Upgrade</td><td>vm-dev-analytics-03</td><td>500 → 1000 GB</td><td>T. Kumar</td><td><span class="status status-ok">Approved</span></td></tr>
+              <tr><td>2026-04-15 08:45</td><td>CPU Upgrade</td><td>vm-prod-svc-088</td><td>4 → 8 vCPU</td><td>M. Rivera</td><td><span class="status status-off">Rejected</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DOMAIN SUMMARY ── -->
+    <div class="page" id="page-domain-summary">
+      <div class="page-header">
+        <div class="breadcrumb">Infrastructure</div>
+        <h1>Domain Summary</h1>
+        <p>UCS domain chassis — used and available blade slots</p>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card"><div class="stat-label">Total Domains</div><div class="stat-value" id="ds-total-domains">—</div><span class="stat-badge badge-blue">UCS Managed</span></div>
+        <div class="stat-card"><div class="stat-label">Total Slots</div><div class="stat-value" id="ds-total-slots">—</div><div class="stat-sub">Across all chassis</div></div>
+        <div class="stat-card"><div class="stat-label">Used Slots</div><div class="stat-value" id="ds-used-slots">—</div><span class="stat-badge badge-yellow" id="ds-used-pct">—</span></div>
+        <div class="stat-card"><div class="stat-label">Available Slots</div><div class="stat-value" id="ds-avail-slots">—</div><span class="stat-badge badge-green" id="ds-avail-pct">—</span></div>
+      </div>
+
+      <div class="card">
+        <div class="filter-bar">
+          <span class="filter-label">Filters:</span>
+          <input type="text" placeholder="Search domain…" style="width:160px" oninput="filterDomains()" id="domain-search" />
+          <select onchange="filterDomains()" id="domain-loc">
+            <option value="">All Locations</option>
+            <option>Philadelphia DC1</option>
+            <option>Nashville DC2</option>
+            <option>Denver DC3</option>
+            <option>Phoenix DC4</option>
+            <option>Dallas DC5</option>
+            <option>Chicago DC6</option>
+            <option>New York DC7</option>
+            <option>Seattle DC8</option>
+          </select>
+          <select onchange="filterDomains()" id="domain-model">
+            <option value="">All Models</option>
+            <option>UCS 5108</option>
+            <option>UCS X-Series</option>
+            <option>UCS C-Series</option>
+          </select>
+          <select id="domain-exp" onchange="filterDomains()">
+            <option value="">Expiration: All</option>
+            <option value="90">Expiring &lt; 90 days</option>
+            <option value="180">Expiring &lt; 180 days</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="resetDomainFilters()">Reset</button>
+          <select id="domain-page-size" onchange="changeDomainPageSize()" style="width:66px">
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+          <div style="margin-left:auto; display:flex; gap:6px; align-items:center">
+            <span class="filter-label">Slot View:</span>
+            <button class="btn btn-sm btn-blue" onclick="showSlotModal()">View Slots</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="domain-table">
+            <thead>
+              <tr>
+                <th onclick="sortDomain('domain')">Domain ⇅</th>
+                <th onclick="sortDomain('location')">Location ⇅</th>
+                <th onclick="sortDomain('model')">Model ⇅</th>
+                <th>Chassis</th>
+                <th onclick="sortDomain('usedSlots')">Used Slots ⇅</th>
+                <th>Empty Slots</th>
+                <th>Utilization</th>
+                <th onclick="sortDomain('expiration')">Expiration ⇅</th>
+                <th>Serial</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="domain-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="domain-pagination"></div>
+      </div>
+    </div>
+
+    <!-- ── SERVER SUMMARY ── -->
+    <div class="page" id="page-server-summary">
+      <div class="page-header">
+        <div class="breadcrumb">Infrastructure</div>
+        <h1>Server Summary</h1>
+        <p>Aggregated server counts by location and server type</p>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">
+        <div class="stat-card"><div class="stat-label">Total Servers</div><div class="stat-value">1,284</div></div>
+        <div class="stat-card"><div class="stat-label">Blade Servers</div><div class="stat-value">866</div><span class="stat-badge badge-blue">67.4%</span></div>
+        <div class="stat-card"><div class="stat-label">Rack Servers</div><div class="stat-value">418</div><span class="stat-badge badge-gray">32.6%</span></div>
+        <div class="stat-card"><div class="stat-label">In Maintenance</div><div class="stat-value">31</div><span class="stat-badge badge-yellow">2.4%</span></div>
+        <div class="stat-card" style="border-left:3px solid #dc2626">
+          <div class="stat-label">Unassigned Servers</div>
+          <div class="stat-value" id="ss-unassigned-count">—</div>
+          <span class="stat-badge badge-red" id="ss-unassigned-pct">—</span>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">By Location</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Location</th><th>Blade</th><th>Rack</th><th>Total</th><th>Maint.</th><th>Health</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Philadelphia DC1</strong></td><td>312</td><td>145</td><td>457</td><td>8</td><td><div class="progress-wrap"><div class="progress-fill fill-yellow" style="width:65%"></div></div></td></tr>
+                <tr><td><strong>Nashville DC2</strong></td><td>218</td><td>97</td><td>315</td><td>12</td><td><div class="progress-wrap"><div class="progress-fill fill-red" style="width:81%"></div></div></td></tr>
+                <tr><td><strong>Denver DC3</strong></td><td>176</td><td>88</td><td>264</td><td>5</td><td><div class="progress-wrap"><div class="progress-fill fill-green" style="width:48%"></div></div></td></tr>
+                <tr><td><strong>Phoenix DC4</strong></td><td>160</td><td>88</td><td>248</td><td>6</td><td><div class="progress-wrap"><div class="progress-fill fill-yellow" style="width:57%"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">By Domain</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Domain</th><th>Location</th><th>Servers</th><th>Clusters</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>ucs-dom-phl-01</td><td>Philadelphia DC1</td><td>128</td><td>4</td><td><span class="status status-ok">Healthy</span></td></tr>
+                <tr><td>ucs-dom-phl-02</td><td>Philadelphia DC1</td><td>112</td><td>3</td><td><span class="status status-ok">Healthy</span></td></tr>
+                <tr><td>ucs-dom-nas-01</td><td>Nashville DC2</td><td>104</td><td>3</td><td><span class="status status-warn">Warning</span></td></tr>
+                <tr><td>ucs-dom-nas-02</td><td>Nashville DC2</td><td>96</td><td>3</td><td><span class="status status-ok">Healthy</span></td></tr>
+                <tr><td>ucs-dom-den-01</td><td>Denver DC3</td><td>88</td><td>2</td><td><span class="status status-ok">Healthy</span></td></tr>
+                <tr><td>ucs-dom-phx-01</td><td>Phoenix DC4</td><td>84</td><td>2</td><td><span class="status status-maint">Maintenance</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Server Type Breakdown</span>
+          <div style="display:flex;gap:8px">
+            <select class="btn btn-sm btn-outline" style="font-size:12px">
+              <option>All Locations</option>
+              <option>Philadelphia DC1</option>
+              <option>Nashville DC2</option>
+              <option>Denver DC3</option>
+              <option>Phoenix DC4</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Model Family</th><th>Type</th><th>Count</th><th>Avg CPU Cores</th><th>Avg Memory (GB)</th><th>Location</th></tr></thead>
+            <tbody>
+              <tr><td>UCSB-B200-M5</td><td>Blade</td><td>312</td><td>40</td><td>384</td><td>Philadelphia DC1</td></tr>
+              <tr><td>UCSB-B200-M6</td><td>Blade</td><td>218</td><td>48</td><td>512</td><td>Nashville DC2</td></tr>
+              <tr><td>UCSC-C240-M5</td><td>Rack</td><td>145</td><td>56</td><td>768</td><td>Philadelphia DC1</td></tr>
+              <tr><td>UCSC-C220-M6</td><td>Rack</td><td>97</td><td>32</td><td>256</td><td>Nashville DC2</td></tr>
+              <tr><td>UCSB-B480-M5</td><td>Blade</td><td>176</td><td>96</td><td>1536</td><td>Denver DC3</td></tr>
+              <tr><td>UCSX-210C-M6</td><td>Blade (X-Series)</td><td>160</td><td>64</td><td>1024</td><td>Phoenix DC4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Assigned vs Unassigned by Model Family -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><span class="card-title">Assigned vs Unassigned — by Model Family &amp; Location</span></div>
+        <div class="filter-bar" style="padding:10px 16px;border-bottom:1px solid var(--neutral-200)">
+          <span class="filter-label">Filters:</span>
+          <select id="assign-loc" onchange="renderAssignedTable()" style="width:160px">
+            <option value="">All Locations</option>
+            <option>Philadelphia DC1</option>
+            <option>Nashville DC2</option>
+            <option>Denver DC3</option>
+            <option>Phoenix DC4</option>
+            <option>Dallas DC5</option>
+            <option>Chicago DC6</option>
+            <option>New York DC7</option>
+            <option>Seattle DC8</option>
+          </select>
+          <select id="assign-model" onchange="renderAssignedTable()" style="width:150px">
+            <option value="">All Models</option>
+            <option>UCSB-B200-M5</option>
+            <option>UCSB-B200-M6</option>
+            <option>UCSC-C240-M5</option>
+            <option>UCSC-C220-M6</option>
+            <option>UCSB-B480-M5</option>
+            <option>UCSX-210C-M6</option>
+          </select>
+          <select id="assign-type" onchange="renderAssignedTable()" style="width:140px">
+            <option value="">All Types</option>
+            <option>Blade</option>
+            <option>Rack</option>
+            <option value="Blade (X-Series)">Blade (X-Series)</option>
+          </select>
+          <select id="assign-status" onchange="renderAssignedTable()" style="width:140px">
+            <option value="">Assigned &amp; Unassigned</option>
+            <option value="assigned">Assigned Only</option>
+            <option value="unassigned">Unassigned Only</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="resetAssignFilters()">Reset</button>
+        </div>
+        <div class="table-wrap">
+          <table id="assign-table">
+            <thead>
+              <tr>
+                <th>Model Family</th>
+                <th>Type</th>
+                <th>Location</th>
+                <th>Total</th>
+                <th>Assigned</th>
+                <th>Unassigned</th>
+                <th>Assigned %</th>
+              </tr>
+            </thead>
+            <tbody id="assign-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SERVER DETAILS ── -->
+    <div class="page" id="page-server-details">
+      <div class="page-header">
+        <div class="breadcrumb">Infrastructure</div>
+        <h1>Server Details</h1>
+        <p>Full inventory view — all server attributes</p>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <input type="text" placeholder="Search server, host, serial…" style="width:200px" id="srv-search" oninput="filterServers()" />
+          <select id="srv-domain" onchange="filterServers()">
+            <option value="">All Domains</option>
+            <option>ucs-dom-phl-01</option>
+            <option>ucs-dom-phl-02</option>
+            <option>ucs-dom-nas-01</option>
+            <option>ucs-dom-nas-02</option>
+            <option>ucs-dom-den-01</option>
+            <option>ucs-dom-phx-01</option>
+          </select>
+          <select id="srv-cluster" onchange="filterServers()">
+            <option value="">All Clusters</option>
+            <option>cluster-prod-01</option>
+            <option>cluster-prod-02</option>
+            <option>cluster-dev-01</option>
+            <option>cluster-mgmt-01</option>
+          </select>
+          <select id="srv-status" onchange="filterServers()">
+            <option value="">All Status</option>
+            <option value="ok">OK</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('srv-search').value='';filterServers()">Reset</button>
+          <button class="btn btn-blue btn-sm" style="margin-left:auto" onclick="showToast('Export started — CSV downloading…','success')">⬇ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Domain</th><th>Chassis</th><th>Slot</th><th>Model</th>
+                <th>Cores</th><th>Memory</th><th>Serial</th><th>Service Profile</th>
+                <th>User Label</th><th>Host</th><th>Cluster</th>
+                <th>Status</th><th>Maint.</th>
+                <th>HWR Forecast</th><th>SmartNet</th><th>ParkPlace</th><th>CPU</th>
+              </tr>
+            </thead>
+            <tbody id="server-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="server-pagination"></div>
+      </div>
+    </div>
+
+    <!-- ── RESOURCE UPGRADE ── -->
+    <div class="page" id="page-resource-upgrade">
+      <div class="page-header">
+        <div class="breadcrumb">Requests</div>
+        <h1>Resource Upgrades</h1>
+        <p>Review, analyze and approve VM resource upgrade requests</p>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchUpgradeTab(this,'tab-adhoc')">Ad-hoc Analysis</div>
+        <div class="tab" onclick="switchUpgradeTab(this,'tab-bulk')">Bulk Analysis</div>
+        <div class="tab" onclick="switchUpgradeTab(this,'tab-queue')">ServiceNow Queue <span class="stat-badge badge-red" style="font-size:10px;padding:1px 5px;margin-left:4px">23</span></div>
+      </div>
+
+      <!-- Ad-hoc -->
+      <div id="tab-adhoc">
+        <div class="two-col">
+          <!-- Form -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Request Details</span></div>
+            <div class="card-body">
+              <div class="form-field">
+                <label>VM Name</label>
+                <input type="text" id="vm-name" placeholder="e.g. vm-prod-db-042" value="vm-prod-db-042" oninput="updatePreview()" />
+              </div>
+              <div class="form-field">
+                <label>Cluster</label>
+                <select id="vm-cluster" onchange="updatePreview()">
+                  <option>cluster-prod-01</option>
+                  <option>cluster-prod-02</option>
+                  <option>cluster-dev-01</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Request Mode</label>
+                <div style="display:flex;gap:0;border:1px solid var(--neutral-300);border-radius:6px;overflow:hidden;width:fit-content">
+                  <button id="req-mode-abs" onclick="setReqMode('abs')" style="padding:4px 14px;font-size:12px;font-weight:600;border:none;background:var(--primary);color:#fff;cursor:pointer">Absolute</button>
+                  <button id="req-mode-pct" onclick="setReqMode('pct')" style="padding:4px 14px;font-size:12px;font-weight:600;border:none;background:#fff;color:var(--neutral-500);cursor:pointer">Growth %</button>
+                </div>
+              </div>
+              <div class="form-field">
+                <label id="vcpu-label">vCPU Request</label>
+                <div class="range-row">
+                  <input type="range" min="1" max="64" value="16" id="vcpu-req" oninput="syncReqLabel('vcpu');updatePreview()" style="flex:1" />
+                  <span class="range-val" id="vcpu-val">16 vCPU</span>
+                </div>
+              </div>
+              <div class="form-field">
+                <label id="mem-label">Memory Request (GB)</label>
+                <div class="range-row">
+                  <input type="range" min="1" max="512" value="64" step="8" id="mem-req" oninput="syncReqLabel('mem');updatePreview()" style="flex:1" />
+                  <span class="range-val" id="mem-val">64 GB</span>
+                </div>
+              </div>
+              <div class="form-field">
+                <label id="stor-label">Storage Request (GB)</label>
+                <div class="range-row">
+                  <input type="range" min="50" max="4000" value="500" step="50" id="stor-req" oninput="syncReqLabel('stor');updatePreview()" style="flex:1" />
+                  <span class="range-val" id="stor-val">500 GB</span>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Justification</label>
+                <textarea rows="2" placeholder="Reason for upgrade…" style="resize:vertical"></textarea>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-blue" onclick="updatePreview()">🔄 Analyze</button>
+                <button class="btn btn-green" onclick="approveAdhoc()">✓ Approve</button>
+                <button class="btn btn-outline" onclick="showToast('Change saved as draft','')">Save Draft</button>
+                <button class="btn btn-outline" id="btn-history" onclick="toggleAdhocHistory()" style="display:none">📋 History</button>
+              </div>
+            </div>
+          </div>
+          <!-- Preview -->
+          <div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-header"><span class="card-title">VM Configuration — Before / After</span></div>
+              <div class="card-body" style="padding:0">
+                <table class="comparison-table" id="compare-table">
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>Current (Before)</th>
+                      <th>Projected (After)</th>
+                      <th>Growth</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compare-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-header"><span class="card-title">Cluster Impact — After Change</span></div>
+              <div class="card-body">
+                <div class="util-row">
+                  <div class="util-label">CPU</div>
+                  <div class="util-bar-wrap"><div class="progress-wrap"><div class="progress-fill fill-yellow" id="cl-cpu-bar" style="width:63%"></div></div></div>
+                  <div class="util-pct warn" id="cl-cpu-pct">63%</div>
+                </div>
+                <div class="util-row">
+                  <div class="util-label">Memory</div>
+                  <div class="util-bar-wrap"><div class="progress-wrap"><div class="progress-fill fill-red" id="cl-mem-bar" style="width:80%"></div></div></div>
+                  <div class="util-pct danger" id="cl-mem-pct">80%</div>
+                </div>
+                <div class="util-row">
+                  <div class="util-label">Storage</div>
+                  <div class="util-bar-wrap"><div class="progress-wrap"><div class="progress-fill fill-green" id="cl-stor-bar" style="width:45%"></div></div></div>
+                  <div class="util-pct ok" id="cl-stor-pct">45%</div>
+                </div>
+                <div id="threshold-alert" style="margin-top:10px"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title">Cost Estimate</span></div>
+              <div class="card-body">
+                <table class="comparison-table">
+                  <thead><tr><th>Item</th><th>Before</th><th>After</th><th>Δ Monthly</th></tr></thead>
+                  <tbody id="cost-tbody"></tbody>
+                </table>
+                <div id="cost-total" style="text-align:right;font-weight:700;font-size:15px;margin-top:12px;color:var(--primary)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Ad-hoc History Panel (vm-prod-db-001 only) -->
+          <div id="adhoc-history-panel" style="display:none;grid-column:1/-1;margin-top:4px">
+            <div class="card">
+              <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+                <span class="card-title">Analysis History — vm-prod-db-001</span>
+                <button class="btn btn-outline btn-sm" onclick="toggleAdhocHistory()">✕ Close</button>
+              </div>
+              <div class="card-body" style="padding:0">
+                <table class="comparison-table">
+                  <thead><tr><th>Date / Time</th><th>vCPU Before→After</th><th>Memory Before→After</th><th>Storage Before→After</th><th>Cluster</th><th>Action</th><th>By</th></tr></thead>
+                  <tbody id="adhoc-history-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+      </div>
+
+      <!-- Bulk Analysis -->
+      <div id="tab-bulk" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+            <span class="card-title">Bulk VM Analysis</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:12px;color:var(--neutral-500)">Request mode:</span>
+              <div style="display:flex;border:1px solid var(--neutral-300);border-radius:6px;overflow:hidden">
+                <button id="bulk-mode-abs" onclick="setBulkMode('abs')" style="padding:3px 12px;font-size:12px;font-weight:600;border:none;background:var(--primary);color:#fff;cursor:pointer">Absolute</button>
+                <button id="bulk-mode-pct" onclick="setBulkMode('pct')" style="padding:3px 12px;font-size:12px;font-weight:600;border:none;background:#fff;color:var(--neutral-500);cursor:pointer">Growth %</button>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="addBulkRow()">+ Add VM</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table style="width:100%">
+              <thead>
+                <tr>
+                  <th style="width:200px">VM Name</th>
+                  <th>Cluster</th>
+                  <th id="bulk-th-cpu">vCPU Request</th>
+                  <th id="bulk-th-mem">Memory (GB)</th>
+                  <th id="bulk-th-stor">Storage (GB)</th>
+                  <th style="width:80px">Justification</th>
+                  <th style="width:36px"></th>
+                </tr>
+              </thead>
+              <tbody id="bulk-tbody"></tbody>
+            </table>
+          </div>
+          <div style="padding:12px 16px;display:flex;gap:8px;border-top:1px solid var(--neutral-200)">
+            <button class="btn btn-blue" onclick="analyzeBulk()">🔄 Analyze All</button>
+            <button class="btn btn-green" onclick="approveBulk()">✓ Approve All</button>
+            <button class="btn btn-outline" onclick="clearBulkResults()">Clear Results</button>
+          </div>
+        </div>
+
+        <!-- Bulk Results — per-VM expandable cards -->
+        <div id="bulk-results" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-weight:600;font-size:14px" id="bulk-results-title">Analysis Results</span>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-outline" onclick="expandAllBulk()">Expand All</button>
+              <button class="btn btn-sm btn-outline" onclick="collapseAllBulk()">Collapse All</button>
+              <button class="btn btn-green" onclick="approveBulk()">✓ Approve All</button>
+            </div>
+          </div>
+          <div id="bulk-results-cards"></div>
+        </div>
+      </div>
+
+      <!-- ServiceNow Queue -->
+      <div id="tab-queue" style="display:none">
+        <div class="filter-bar" style="border-radius:6px;margin-bottom:16px;border:1px solid var(--neutral-200)">
+          <input type="text" placeholder="Search ticket, VM…" style="width:180px" id="snow-search" oninput="filterSnow()" />
+          <select id="snow-priority" onchange="filterSnow()">
+            <option value="">All Priorities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <select id="snow-status" onchange="filterSnow()">
+            <option value="">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="showToast('Synced with ServiceNow','success')">🔄 Sync ServiceNow</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket</th><th>VM Name</th><th>Cluster</th><th>CPU Req.</th><th>Mem Req.</th><th>Storage Req.</th>
+                  <th>Requester</th><th>Priority</th><th>Submitted</th><th>Est. Cost Δ</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="snow-tbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="snow-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BU INFRASTRUCTURE USAGE ── -->
+    <div class="page" id="page-bu-usage">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="breadcrumb">Analytics</div>
+          <h1>BU Infrastructure Usage</h1>
+          <p>Resource consumption and efficiency by Business Unit</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select id="bu-period" onchange="renderBUPage()" style="padding:6px 10px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:13px">
+            <option value="month">This Month</option>
+            <option value="quarter">This Quarter</option>
+            <option value="year">YTD</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="showToast('Export started — CSV downloading…','success')">⬇ Export</button>
+        </div>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
+        <div class="stat-card"><div class="stat-label">Total BUs</div><div class="stat-value">12</div></div>
+        <div class="stat-card"><div class="stat-label">Total vCPU Allocated</div><div class="stat-value">48,320</div><span class="stat-badge badge-blue">Org-wide</span></div>
+        <div class="stat-card"><div class="stat-label">Total Memory Alloc.</div><div class="stat-value">192 TB</div></div>
+        <div class="stat-card"><div class="stat-label">Total Storage Alloc.</div><div class="stat-value">4.8 PB</div></div>
+        <div class="stat-card"><div class="stat-label">Avg. CPU Efficiency</div><div class="stat-value">61%</div><span class="stat-badge badge-yellow">Moderate</span></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Resource Allocation &amp; Utilization by Business Unit</span>
+          <div style="display:flex;gap:8px">
+            <input type="text" placeholder="Search BU…" id="bu-search" oninput="renderBUTable()" style="padding:5px 9px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px;width:150px" />
+            <select id="bu-sort" onchange="renderBUTable()" style="padding:5px 8px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px">
+              <option value="cpu_alloc">Sort: vCPU Allocated</option>
+              <option value="cpu_eff">Sort: CPU Efficiency</option>
+              <option value="mem_eff">Sort: Memory Efficiency</option>
+              <option value="cost">Sort: Monthly Cost</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Business Unit</th><th>Division</th><th>VMs</th>
+              <th>vCPU Alloc.</th><th>CPU Util.</th>
+              <th>Mem Alloc. (GB)</th><th>Mem Util.</th>
+              <th>Storage (TB)</th><th>Storage Util.</th>
+              <th>Monthly Cost</th><th>Efficiency Score</th>
+            </tr></thead>
+            <tbody id="bu-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="bu-pagination"></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top 5 — Underutilized BUs (CPU &lt; 40%)</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>BU</th><th>vCPU Alloc.</th><th>CPU Util.</th><th>Potential Savings/mo</th></tr></thead>
+              <tbody id="bu-underutil-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top 5 — High Utilization BUs (CPU &gt; 75%)</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>BU</th><th>vCPU Alloc.</th><th>CPU Util.</th><th>Headroom (vCPU)</th></tr></thead>
+              <tbody id="bu-highutil-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── INFRA RUNWAY ── -->
+    <div class="page" id="page-infra-runway">
+      <div class="page-header">
+        <div class="breadcrumb">Analytics</div>
+        <h1>Infrastructure Runway</h1>
+        <p>Projected capacity exhaustion dates based on current growth trends</p>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-label">CPU Runway</div>
+          <div class="stat-value" style="color:var(--warning)">8 mo</div>
+          <div class="stat-sub">At current growth rate</div>
+          <span class="stat-badge badge-yellow">Dec 2026</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Memory Runway</div>
+          <div class="stat-value" style="color:var(--danger)">5 mo</div>
+          <div class="stat-sub">Highest pressure resource</div>
+          <span class="stat-badge badge-red">Sep 2026</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Storage Runway</div>
+          <div class="stat-value" style="color:var(--success)">18 mo</div>
+          <div class="stat-sub">Comfortable headroom</div>
+          <span class="stat-badge badge-green">Oct 2027</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Slot Runway</div>
+          <div class="stat-value" style="color:var(--warning)">11 mo</div>
+          <div class="stat-sub">Chassis blade slots</div>
+          <span class="stat-badge badge-yellow">Mar 2027</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Cluster-level Runway Forecast</span>
+          <div style="display:flex;gap:8px">
+            <select id="runway-resource" onchange="renderRunwayTable()" style="padding:5px 8px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px">
+              <option value="cpu">CPU</option>
+              <option value="mem">Memory</option>
+              <option value="stor">Storage</option>
+            </select>
+            <select id="runway-loc" onchange="renderRunwayTable()" style="padding:5px 8px;border:1px solid var(--neutral-300);border-radius:var(--radius);font-size:12px">
+              <option value="">All Locations</option>
+              <option>Philadelphia DC1</option><option>Nashville DC2</option>
+              <option>Denver DC3</option><option>Phoenix DC4</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Cluster</th><th>Location</th><th>Current Util.</th>
+              <th>30-day Avg Growth</th><th>90-day Forecast</th>
+              <th>180-day Forecast</th><th>Est. Exhaustion</th><th>Action</th>
+            </tr></thead>
+            <tbody id="runway-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="runway-pagination"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Growth Assumptions &amp; Scenarios</span></div>
+        <div class="card-body">
+          <div class="three-col">
+            <div style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:6px;padding:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--neutral-600);margin-bottom:8px">Conservative (1% MoM)</div>
+              <div style="font-size:11px;color:var(--neutral-500)">CPU runway: 14 months<br>Memory runway: 9 months<br>Storage runway: 28 months</div>
+            </div>
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:8px">Base Case (2.5% MoM) ← Current</div>
+              <div style="font-size:11px;color:var(--neutral-500)">CPU runway: 8 months<br>Memory runway: 5 months<br>Storage runway: 18 months</div>
+            </div>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--warning);margin-bottom:8px">Aggressive (4.5% MoM)</div>
+              <div style="font-size:11px;color:var(--neutral-500)">CPU runway: 4 months<br>Memory runway: 3 months<br>Storage runway: 10 months</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXECUTIVE DASHBOARD ── -->
+    <div class="page" id="page-exec-dashboard">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="breadcrumb">Analytics</div>
+          <h1>Executive Dashboard</h1>
+          <p>High-level capacity health and financial summary for leadership</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="showToast('PDF export ready for download','success')">📄 Export PDF</button>
+          <button class="btn btn-blue btn-sm" onclick="showToast('Dashboard link copied to clipboard','success')">🔗 Share</button>
+        </div>
+      </div>
+
+      <!-- Top KPIs -->
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="stat-card" style="border-left:4px solid var(--primary)">
+          <div class="stat-label">Infrastructure Coverage</div>
+          <div class="stat-value">$127M</div>
+          <div class="stat-sub">Total asset value managed</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid var(--success)">
+          <div class="stat-label">Monthly Infra Spend</div>
+          <div class="stat-value">$2.4M</div>
+          <div class="stat-sub">↓ 3.2% vs last month</div>
+          <span class="stat-badge badge-green">Under budget</span>
+        </div>
+        <div class="stat-card" style="border-left:4px solid var(--warning)">
+          <div class="stat-label">Overall Capacity Health</div>
+          <div class="stat-value">74%</div>
+          <div class="stat-sub">Composite utilization index</div>
+          <span class="stat-badge badge-yellow">Moderate pressure</span>
+        </div>
+        <div class="stat-card" style="border-left:4px solid var(--danger)">
+          <div class="stat-label">Critical Actions</div>
+          <div class="stat-value">7</div>
+          <div class="stat-sub">Require immediate attention</div>
+          <span class="stat-badge badge-red">Urgent</span>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:16px">
+        <!-- Resource Health -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Resource Health — Org Wide</span></div>
+          <div class="card-body">
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:500">CPU</span>
+                <span style="font-size:13px;color:var(--warning);font-weight:600">61% utilized</span>
+              </div>
+              <div class="progress-wrap" style="height:10px"><div class="progress-fill fill-yellow" style="width:61%"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--neutral-400);margin-top:3px"><span>0%</span><span>Threshold: 80%</span><span>100%</span></div>
+            </div>
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:500">Memory</span>
+                <span style="font-size:13px;color:var(--danger);font-weight:600">78% utilized</span>
+              </div>
+              <div class="progress-wrap" style="height:10px"><div class="progress-fill fill-red" style="width:78%"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--neutral-400);margin-top:3px"><span>0%</span><span>Threshold: 85%</span><span>100%</span></div>
+            </div>
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:500">Storage</span>
+                <span style="font-size:13px;color:var(--success);font-weight:600">43% utilized</span>
+              </div>
+              <div class="progress-wrap" style="height:10px"><div class="progress-fill fill-green" style="width:43%"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--neutral-400);margin-top:3px"><span>0%</span><span>Threshold: 75%</span><span>100%</span></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:500">Chassis Slots</span>
+                <span style="font-size:13px;color:var(--warning);font-weight:600">74% occupied</span>
+              </div>
+              <div class="progress-wrap" style="height:10px"><div class="progress-fill fill-yellow" style="width:74%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capacity Runway -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Capacity Runway Summary</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Resource</th><th>Current Util.</th><th>Est. Exhaustion</th><th>Runway</th><th>Risk</th></tr></thead>
+              <tbody>
+                <tr><td>CPU</td><td>61%</td><td>Dec 2026</td><td>8 months</td><td><span class="stat-badge badge-yellow">Medium</span></td></tr>
+                <tr><td>Memory</td><td>78%</td><td>Sep 2026</td><td>5 months</td><td><span class="stat-badge badge-red">High</span></td></tr>
+                <tr><td>Storage</td><td>43%</td><td>Oct 2027</td><td>18 months</td><td><span class="stat-badge badge-green">Low</span></td></tr>
+                <tr><td>Chassis Slots</td><td>74%</td><td>Mar 2027</td><td>11 months</td><td><span class="stat-badge badge-yellow">Medium</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:16px">
+        <!-- Top BU Spend -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top 5 BU — Monthly Infrastructure Cost</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Business Unit</th><th>Monthly Cost</th><th>vs Budget</th><th>YoY Change</th></tr></thead>
+              <tbody>
+                <tr><td>Digital &amp; Technology</td><td>$487,200</td><td><span class="stat-badge badge-red">+12%</span></td><td>↑ 18%</td></tr>
+                <tr><td>Healthcare Operations</td><td>$362,100</td><td><span class="stat-badge badge-green">-3%</span></td><td>↑ 7%</td></tr>
+                <tr><td>Pharmacy &amp; Benefits</td><td>$298,400</td><td><span class="stat-badge badge-yellow">+2%</span></td><td>↑ 11%</td></tr>
+                <tr><td>Data &amp; Analytics</td><td>$241,800</td><td><span class="stat-badge badge-green">-8%</span></td><td>↓ 2%</td></tr>
+                <tr><td>Enterprise IT</td><td>$187,500</td><td><span class="stat-badge badge-green">On target</span></td><td>↑ 4%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Action Items -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Critical Action Items</span></div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Priority</th><th>Issue</th><th>Impact</th><th>Owner</th></tr></thead>
+              <tbody>
+                <tr><td><span class="stat-badge badge-red">P1</span></td><td>Nashville DC2 memory &gt; 85%</td><td>High</td><td>Infra Team</td></tr>
+                <tr><td><span class="stat-badge badge-red">P1</span></td><td>47 SmartNet contracts expiring &lt;90d</td><td>High</td><td>Procurement</td></tr>
+                <tr><td><span class="stat-badge badge-yellow">P2</span></td><td>Memory runway: 5 months org-wide</td><td>Medium</td><td>Capacity Mgmt</td></tr>
+                <tr><td><span class="stat-badge badge-yellow">P2</span></td><td>23 pending upgrade requests</td><td>Medium</td><td>Capacity Mgmt</td></tr>
+                <tr><td><span class="stat-badge badge-yellow">P2</span></td><td>cluster-prod-02 CPU at 83%</td><td>Medium</td><td>Infra Team</td></tr>
+                <tr><td><span class="stat-badge badge-gray">P3</span></td><td>Denver DC3 slot utilization rising</td><td>Low</td><td>Capacity Mgmt</td></tr>
+                <tr><td><span class="stat-badge badge-gray">P3</span></td><td>3 domains on EOL hardware</td><td>Low</td><td>Procurement</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Month-over-Month Trend (Mock)</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+            <!-- Sparkline-style mini bars per month -->
+            <div id="exec-trend-container" style="grid-column:1/-1"></div>
+          </div>
+          <div id="exec-trend" style="display:flex;align-items:flex-end;gap:6px;height:100px;padding-top:8px"></div>
+          <div style="display:flex;gap:16px;margin-top:12px;font-size:12px">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:#f59e0b;display:inline-block"></span>CPU Util.</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:#dc2626;display:inline-block"></span>Memory Util.</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:#16a34a;display:inline-block"></span>Storage Util.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CONFIGURATION ── -->
+    <div class="page" id="page-configuration">
+      <div class="page-header">
+        <div class="breadcrumb">Administration</div>
+        <h1>Configuration</h1>
+        <p>Manage pricing, thresholds, and system settings</p>
+      </div>
+      <div class="config-grid">
+        <!-- Resource Pricing -->
+        <div class="config-card">
+          <h3>💲 Resource Pricing (Monthly)</h3>
+          <div class="form-field">
+            <label>Cost per vCPU ($/month)</label>
+            <input type="number" id="price-cpu" value="12.50" step="0.01" min="0" />
+          </div>
+          <div class="form-field">
+            <label>Cost per GB Memory ($/month)</label>
+            <input type="number" id="price-mem" value="2.75" step="0.01" min="0" />
+          </div>
+          <div class="form-field">
+            <label>Cost per GB Storage ($/month)</label>
+            <input type="number" id="price-stor" value="0.18" step="0.01" min="0" />
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="savePricing()">Save Pricing</button>
+        </div>
+
+        <!-- Overhead & Licensing -->
+        <div class="config-card">
+          <h3>🏗️ Overhead &amp; Licensing</h3>
+          <div class="form-field">
+            <label>Per-Cluster Monthly Overhead ($)</label>
+            <input type="number" id="price-overhead" value="450" step="1" min="0" />
+          </div>
+          <div class="form-field">
+            <label>vSphere Licensing ($/vCPU/month)</label>
+            <input type="number" id="price-vsphere" value="3.20" step="0.01" min="0" />
+          </div>
+          <div class="form-field">
+            <label>Data Protection ($/GB/month)</label>
+            <input type="number" id="price-dp" value="0.05" step="0.01" min="0" />
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="savePricing()">Save Settings</button>
+        </div>
+
+        <!-- Utilization Thresholds -->
+        <div class="config-card">
+          <h3>⚠️ Approval Thresholds</h3>
+          <p style="font-size:12px;color:var(--neutral-500);margin-bottom:12px">Upgrades that push cluster utilization above these values will require manual review.</p>
+          <div class="form-field">
+            <label>CPU Threshold (%)</label>
+            <input type="number" id="thr-cpu" value="80" min="0" max="100" />
+          </div>
+          <div class="form-field">
+            <label>Memory Threshold (%)</label>
+            <input type="number" id="thr-mem" value="85" min="0" max="100" />
+          </div>
+          <div class="form-field">
+            <label>Storage Threshold (%)</label>
+            <input type="number" id="thr-stor" value="75" min="0" max="100" />
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="savePricing()">Save Thresholds</button>
+        </div>
+
+        <!-- Data Sources -->
+        <div class="config-card">
+          <h3>🔌 Data Source Connections</h3>
+          <div class="form-field">
+            <label>Intersight API Endpoint</label>
+            <input type="text" value="https://intersight.com/api/v1" />
+          </div>
+          <div class="form-field">
+            <label>vROPs API Endpoint</label>
+            <input type="text" value="https://vrops.internal.company.com/suite-api" />
+          </div>
+          <div class="form-field">
+            <label>ServiceNow Instance URL</label>
+            <input type="text" value="https://company.service-now.com" />
+          </div>
+          <div class="form-field">
+            <label>Sync Interval (minutes)</label>
+            <input type="number" value="15" min="5" />
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue btn-sm" onclick="savePricing()">Save</button>
+            <button class="btn btn-outline btn-sm" onclick="showToast('Connection test: all sources OK ✓','success')">Test Connections</button>
+          </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="config-card">
+          <h3>🔔 Notifications</h3>
+          <div class="form-field">
+            <label>Alert Email (comma-separated)</label>
+            <input type="text" value="capacity-team@company.com, infra-ops@company.com" />
+          </div>
+          <div class="form-field">
+            <label>Slack Webhook URL</label>
+            <input type="text" value="https://hooks.slack.com/services/…" />
+          </div>
+          <div class="form-field">
+            <label>SmartNet Expiry Alert (days before)</label>
+            <input type="number" value="90" min="7" />
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="savePricing()">Save Notifications</button>
+        </div>
+
+        <!-- Feature Flags placeholder -->
+        <div class="config-card">
+          <h3>🚀 Feature Flags</h3>
+          <p style="font-size:12px;color:var(--neutral-500);margin-bottom:14px">Enable or disable features without a deployment.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" checked /> Enable vROPs live metrics
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" checked /> ServiceNow integration
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" /> Cost chargeback reports (Beta)
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" /> Auto-provisioning workflow (Beta)
+            </label>
+          </div>
+          <button class="btn btn-blue btn-sm" style="margin-top:14px" onclick="savePricing()">Save Flags</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── SLOT MODAL ── -->
+<div class="modal-overlay" id="slot-modal">
+  <div class="modal" style="width:860px">
+    <div class="modal-header">
+      <span class="modal-title">Chassis Slot Visualization — ucs-dom-phl-01 / Chassis 01</span>
+      <button class="modal-close" onclick="closeModal('slot-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:14px;height:14px;border-radius:3px;background:#dbeafe;border:1px solid #93c5fd"></div>Used</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:14px;height:14px;border-radius:3px;background:var(--neutral-100);border:1px solid var(--neutral-200)"></div>Empty</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:14px;height:14px;border-radius:3px;background:#fef9c3;border:1px solid #fde047"></div>Maintenance</div>
+        <div style="margin-left:auto;font-size:12px;color:var(--neutral-500)">8 slots per chassis row</div>
+      </div>
+      <div id="slot-grid-container"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('slot-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DOMAIN DETAIL MODAL ── -->
+<div class="modal-overlay" id="domain-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="domain-modal-title">Domain Details</span>
+      <button class="modal-close" onclick="closeModal('domain-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="domain-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('domain-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SERVER DETAIL MODAL ── -->
+<div class="modal-overlay" id="server-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="server-modal-title">Server Details</span>
+      <button class="modal-close" onclick="closeModal('server-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="server-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('server-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// MOCK DATA
+// ─────────────────────────────────────────────
+const LOC_PREFIXES = ['phl','nas','den','phx','dal','chi','nyc','sea'];
+const LOCATIONS    = ['Philadelphia DC1','Nashville DC2','Denver DC3','Phoenix DC4','Dallas DC5','Chicago DC6','New York DC7','Seattle DC8'];
+const LOC_MAP      = { phl:'Philadelphia DC1', nas:'Nashville DC2', den:'Denver DC3', phx:'Phoenix DC4', dal:'Dallas DC5', chi:'Chicago DC6', nyc:'New York DC7', sea:'Seattle DC8' };
+const MODELS       = ['UCS 5108','UCS X-Series','UCS C-Series'];
+const CLUSTERS = ['cluster-prod-01','cluster-prod-02','cluster-dev-01','cluster-mgmt-01'];
+const PROFILES = ['SP-Prod-Web','SP-Prod-DB','SP-Dev','SP-Mgmt','SP-Analytics'];
+
+function rnd(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function randDate(daysMin,daysMax){
+  const d = new Date();
+  d.setDate(d.getDate()+rnd(daysMin,daysMax));
+  return d.toISOString().slice(0,10);
+}
+function serial(pfx){ return pfx+rnd(10000,99999); }
+
+// Domains — 250 across 8 DCs
+const DOMAINS = (function(){
+  const LOC_COUNTS = [52,40,35,30,28,25,22,18]; // sums to 250
+  const out = [];
+  let idx = 0;
+  LOC_PREFIXES.forEach((pfx,li) => {
+    for(let n=1; n<=LOC_COUNTS[li]; n++){
+      const chassis    = rnd(2,8);
+      const totalSlots = chassis*8;
+      const usedSlots  = rnd(Math.floor(totalSlots*.3), Math.floor(totalSlots*.97));
+      out.push({
+        domain:     `ucs-dom-${pfx}-${String(n).padStart(2,'0')}`,
+        location:   LOCATIONS[li],
+        model:      MODELS[idx%3],
+        chassis, totalSlots, usedSlots,
+        emptySlots: totalSlots-usedSlots,
+        expiration: randDate(30,730),
+        serial:     serial('FLM'),
+        status:     idx%40===0 ? 'Maintenance' : 'Active'
+      });
+      idx++;
+    }
+  });
+  return out;
+})();
+
+// Servers
+const SERVER_MODELS = ['UCSB-B200-M5','UCSB-B200-M6','UCSC-C240-M5','UCSC-C220-M6','UCSB-B480-M5','UCSX-210C-M6'];
+const SERVERS = Array.from({length:80},(_,i)=>{
+  const dom = DOMAINS[i%DOMAINS.length].domain;
+  const loc_key = dom.split('-')[2];
+  const loc = LOC_MAP[loc_key]||LOCATIONS[0];
+  const inMaint = i%15===0;
+  return {
+    domain: dom, location: loc, chassis: 'Chassis-0'+rnd(1,4),
+    slot: rnd(1,8), model: SERVER_MODELS[i%6],
+    cores: [20,24,28,32,40,48,56,96][i%8],
+    memory: [128,256,384,512,768,1024][i%6],
+    serial: serial('SRV'), serviceProfile: PROFILES[i%5],
+    userLabel: 'lbl-'+dom.slice(-3)+'-'+String(i).padStart(3,'0'),
+    host: 'esxi-'+String(i+1).padStart(3,'0')+'.'+loc_key+'.internal',
+    cluster: CLUSTERS[i%4],
+    status: inMaint?'Maintenance':'OK',
+    maintenanceMode: inMaint?'Yes':'No',
+    hwrForecast: randDate(60,500),
+    smartNet: randDate(30,400),
+    parkPlace: randDate(20,500),
+    cpuName: ['Intel(R) Xeon(R) Gold 6542Y','Intel(R) Xeon(R) Gold 6336Y CPU @ 2.40GHz','Intel(R) Xeon(R) Silver 4316 CPU @ 2.30GHz','Intel(R) Xeon(R) Platinum 8360Y CPU @ 2.40GHz','Intel(R) Xeon(R) Gold 6348 CPU @ 2.60GHz'][i%5],
+    assigned: i%7 !== 0  // ~85% assigned, ~15% unassigned
+  };
+});
+
+// ServiceNow queue
+const SNOW_STATUSES = ['Pending','Pending','Pending','Approved','Rejected'];
+const PRIORITIES = ['Critical','Critical','High','High','Medium','Medium','Low'];
+const REQUESTERS = ['A. Patel','B. Chen','T. Kumar','M. Rivera','S. Wong','J. Park','L. Smith'];
+const SNOW = Array.from({length:23},(_,i)=>{
+  const cpuReq = [4,8,8,16,16,32][i%6];
+  const memReq = [16,32,32,64,64,128][i%6];
+  const storReq = [100,200,250,500,500,1000][i%6];
+  const cpuBefore = cpuReq/2;
+  const memBefore = memReq/2;
+  const storBefore = storReq/2;
+  const costDelta = (cpuReq-cpuBefore)*12.5+(memReq-memBefore)*2.75+(storReq-storBefore)*0.18;
+  return {
+    ticket: 'CHG'+String(1001+i),
+    vm: 'vm-'+(['prod-db','prod-web','prod-svc','dev-app','dev-analytics','mgmt-mon'][i%6])+'-'+String(i+1).padStart(3,'0'),
+    cluster: CLUSTERS[i%4],
+    cpuBefore, cpuReq, memBefore, memReq, storBefore, storReq,
+    requester: REQUESTERS[i%7],
+    priority: PRIORITIES[i%7],
+    submitted: randDate(-30,0),
+    costDelta: costDelta.toFixed(2),
+    status: SNOW_STATUSES[i%5]
+  };
+});
+
+// ─────────────────────────────────────────────
+// PRICING STATE
+// ─────────────────────────────────────────────
+const PRICING = { cpu:12.5, mem:2.75, stor:0.18, vcpuLicense:3.2 };
+const THRESHOLDS = { cpu:80, mem:85, stor:75 };
+
+// Baseline VM config (before) — includes current utilization metrics
+const VM_BEFORE = {
+  cpu:8,   cpuPct:62,  peakCpuPct:84,
+  mem:32,  memPct:71,  peakMemPct:89,
+  stor:250, storPct:58
+};
+// Baseline cluster utilization (before any new VM load)
+const CLUSTER_BASE = { cpu:60, mem:77, stor:43 };
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+function doLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  if(!u){ return; }
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').style.display='block';
+  initApp();
+}
+function doLogout(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function navigate(el, pageId){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+pageId).classList.add('active');
+}
+
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const main = document.getElementById('main');
+  sb.classList.toggle('collapsed');
+  main.classList.toggle('sidebar-collapsed');
+}
+
+function switchUpgradeTab(el, tabId){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-adhoc').style.display = tabId==='tab-adhoc'?'block':'none';
+  document.getElementById('tab-bulk').style.display  = tabId==='tab-bulk' ?'block':'none';
+  document.getElementById('tab-queue').style.display = tabId==='tab-queue'?'block':'none';
+}
+
+// ─────────────────────────────────────────────
+// DOMAIN TABLE
+// ─────────────────────────────────────────────
+let domainData = [...DOMAINS];
+let domainPage = 1;
+let domainPageSize = 10;
+
+function updateDomainStats(filtered){
+  const ts = filtered.reduce((s,d)=>s+d.totalSlots,0);
+  const us = filtered.reduce((s,d)=>s+d.usedSlots,0);
+  const av = ts - us;
+  document.getElementById('ds-total-domains').textContent = filtered.length.toLocaleString();
+  document.getElementById('ds-total-slots').textContent   = ts.toLocaleString();
+  document.getElementById('ds-used-slots').textContent    = us.toLocaleString();
+  document.getElementById('ds-avail-slots').textContent   = av.toLocaleString();
+  document.getElementById('ds-used-pct').textContent      = ts ? Math.round(us/ts*100)+'%' : '0%';
+  document.getElementById('ds-avail-pct').textContent     = ts ? Math.round(av/ts*100)+'%' : '0%';
+}
+
+function renderDomainTable(){
+  const search = document.getElementById('domain-search').value.toLowerCase();
+  const loc = document.getElementById('domain-loc').value;
+  const model = document.getElementById('domain-model').value;
+  const expDays = parseInt(document.getElementById('domain-exp').value)||9999;
+  const today = new Date();
+
+  let filtered = domainData.filter(d=>{
+    if(search && !d.domain.toLowerCase().includes(search) && !d.serial.toLowerCase().includes(search)) return false;
+    if(loc && d.location!==loc) return false;
+    if(model && d.model!==model) return false;
+    if(expDays<9999){
+      const diff = (new Date(d.expiration)-today)/(1000*60*60*24);
+      if(diff>expDays) return false;
+    }
+    return true;
+  });
+
+  updateDomainStats(filtered);
+
+  const start=(domainPage-1)*domainPageSize;
+  const paged=filtered.slice(start,start+domainPageSize);
+  const tbody=document.getElementById('domain-tbody');
+  tbody.innerHTML=paged.map(d=>{
+    const pct=Math.round(d.usedSlots/d.totalSlots*100);
+    const fillClass=pct>80?'fill-red':pct>60?'fill-yellow':'fill-green';
+    const expDate=new Date(d.expiration);
+    const daysLeft=Math.round((expDate-new Date())/(1000*60*60*24));
+    const expCls=daysLeft<90?'badge-red':daysLeft<180?'badge-yellow':'badge-green';
+    return `<tr>
+      <td><a href="#" onclick="showDomainModal('${d.domain}');return false;" style="font-weight:600;color:var(--primary);text-decoration:none">${d.domain}</a></td>
+      <td>${d.location}</td>
+      <td>${d.model}</td>
+      <td>${d.chassis}</td>
+      <td>${d.usedSlots}</td>
+      <td>${d.emptySlots}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="progress-wrap" style="width:70px"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;font-weight:600">${pct}%</span>
+        </div>
+      </td>
+      <td><span class="stat-badge ${expCls}">${d.expiration}</span></td>
+      <td style="font-family:monospace;font-size:12px">${d.serial}</td>
+      <td><span class="status ${d.status==='Active'?'status-ok':'status-maint'}">${d.status}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Windowed pagination
+  const totalPages=Math.ceil(filtered.length/domainPageSize);
+  const pg=document.getElementById('domain-pagination');
+  pg.innerHTML='';
+
+  function _mkBtn(label,page,isActive,disabled){
+    const b=document.createElement('button');
+    b.className='page-btn'+(isActive?' active':'');
+    b.textContent=label; b.disabled=disabled;
+    if(!disabled) b.onclick=()=>{ domainPage=page; renderDomainTable(); };
+    return b;
+  }
+  function _mkEllipsis(){
+    const s=document.createElement('span');
+    s.textContent='…'; s.style.cssText='padding:0 6px;color:var(--neutral-400);line-height:30px';
+    return s;
+  }
+
+  pg.appendChild(_mkBtn('« Prev',domainPage-1,false,domainPage===1));
+  if(totalPages<=9){
+    for(let i=1;i<=totalPages;i++) pg.appendChild(_mkBtn(i,i,i===domainPage,false));
+  } else {
+    pg.appendChild(_mkBtn(1,1,domainPage===1,false));
+    if(domainPage>4) pg.appendChild(_mkEllipsis());
+    const ws=Math.max(2,domainPage-2), we=Math.min(totalPages-1,domainPage+2);
+    for(let i=ws;i<=we;i++) pg.appendChild(_mkBtn(i,i,i===domainPage,false));
+    if(domainPage<totalPages-3) pg.appendChild(_mkEllipsis());
+    pg.appendChild(_mkBtn(totalPages,totalPages,domainPage===totalPages,false));
+  }
+  pg.appendChild(_mkBtn('Next »',domainPage+1,false,domainPage===totalPages));
+}
+
+function filterDomains(){ domainPage=1; renderDomainTable(); }
+function changeDomainPageSize(){
+  domainPageSize=parseInt(document.getElementById('domain-page-size').value);
+  domainPage=1; renderDomainTable();
+}
+function resetDomainFilters(){
+  document.getElementById('domain-search').value='';
+  document.getElementById('domain-loc').value='';
+  document.getElementById('domain-model').value='';
+  document.getElementById('domain-exp').value='';
+  document.getElementById('domain-page-size').value='10';
+  domainPageSize=10;
+  filterDomains();
+}
+function renderAssignedTable(){
+  // Update unassigned stat card (always reflects full dataset)
+  const totalSrv = SERVERS.length;
+  const unassignedTotal = SERVERS.filter(s=>!s.assigned).length;
+  const unassignedPct = Math.round(unassignedTotal/totalSrv*100);
+  const el = document.getElementById('ss-unassigned-count');
+  const elPct = document.getElementById('ss-unassigned-pct');
+  if(el){ el.textContent = unassignedTotal.toLocaleString(); }
+  if(elPct){ elPct.textContent = unassignedPct+'%'; }
+
+  const typeMap = {
+    'UCSB-B200-M5':'Blade','UCSB-B200-M6':'Blade',
+    'UCSC-C240-M5':'Rack','UCSC-C220-M6':'Rack',
+    'UCSB-B480-M5':'Blade','UCSX-210C-M6':'Blade (X-Series)'
+  };
+  const locF    = document.getElementById('assign-loc').value;
+  const modelF  = document.getElementById('assign-model').value;
+  const typeF   = document.getElementById('assign-type').value;
+  const statusF = document.getElementById('assign-status').value;
+
+  const agg = {};
+  SERVERS.forEach(s=>{
+    const type = typeMap[s.model]||'—';
+    if(locF   && s.location !== locF)  return;
+    if(modelF && s.model    !== modelF) return;
+    if(typeF  && type       !== typeF)  return;
+    if(statusF === 'assigned'   && !s.assigned) return;
+    if(statusF === 'unassigned' &&  s.assigned) return;
+    const key = s.model+'||'+s.location;
+    if(!agg[key]) agg[key]={model:s.model, type, location:s.location, total:0, assigned:0};
+    agg[key].total++;
+    if(s.assigned) agg[key].assigned++;
+  });
+
+  const rows = Object.values(agg).sort((a,b)=> a.location!==b.location ? a.location.localeCompare(b.location) : b.total-a.total);
+  const tbody = document.getElementById('assign-tbody');
+
+  if(!rows.length){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--neutral-400);padding:20px">No records match the selected filters.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r=>{
+    const unassigned = r.total - r.assigned;
+    const pct = Math.round(r.assigned/r.total*100);
+    const barCls = pct<60?'fill-red':pct<85?'fill-yellow':'fill-green';
+    return `<tr>
+      <td><strong>${r.model}</strong></td>
+      <td>${r.type}</td>
+      <td>${r.location}</td>
+      <td>${r.total}</td>
+      <td style="color:#15803d;font-weight:600">${r.assigned}</td>
+      <td style="color:#dc2626;font-weight:600">${unassigned}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="progress-wrap" style="width:80px"><div class="progress-fill ${barCls}" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;font-weight:600">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resetAssignFilters(){
+  ['assign-loc','assign-model','assign-type','assign-status'].forEach(id=>document.getElementById(id).value='');
+  renderAssignedTable();
+}
+
+function sortDomain(key){
+  domainData.sort((a,b)=> a[key]>b[key]?1:-1);
+  renderDomainTable();
+}
+
+// Extended detail data — only available for ucs-dom-phl-01 (prototype)
+const DOMAIN_EXTENDED = {
+  'ucs-dom-phl-01': {
+    smartNet:   '2026-09-30',
+    parkPlace:  '2027-03-15',
+    hwrForecast:'2026-12-01',
+    contact:    'ops-team-phl@cigna.com',
+    rackUnit:   'Rack A-07, U12',
+    powerDraw:  '3.2 kW',
+    notes:      'Primary production domain. Scheduled for memory expansion Q3 2026.'
+  }
+};
+
+function showDomainModal(domainName){
+  const d = DOMAINS.find(x=>x.domain===domainName);
+  if(!d) return;
+  const ext = DOMAIN_EXTENDED[domainName];
+
+  function dateBadge(dateStr){
+    if(!dateStr) return '<span class="stat-badge" style="background:#f1f5f9;color:#64748b">N/A</span>';
+    const days = Math.round((new Date(dateStr)-new Date())/(1000*60*60*24));
+    const cls  = days<90?'badge-red':days<180?'badge-yellow':'badge-green';
+    return `<span class="stat-badge ${cls}">${dateStr} <span style="font-weight:400;opacity:.8">(${days}d)</span></span>`;
+  }
+
+  const pct = Math.round(d.usedSlots/d.totalSlots*100);
+  const fillClass = pct>80?'fill-red':pct>60?'fill-yellow':'fill-green';
+
+  let rows = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:13px">
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Location</div><strong>${d.location}</strong></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Model</div><strong>${d.model}</strong></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Serial</div><code style="font-size:12px">${d.serial}</code></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Status</div><span class="status ${d.status==='Active'?'status-ok':'status-maint'}">${d.status}</span></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Chassis</div><strong>${d.chassis}</strong></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Slot Utilization</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="progress-wrap" style="width:80px"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;font-weight:600">${d.usedSlots}/${d.totalSlots} (${pct}%)</span>
+        </div>
+      </div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Domain Expiration</div>${dateBadge(d.expiration)}</div>`;
+
+  if(ext){
+    rows += `
+      <div></div>
+      <div style="grid-column:1/-1;border-top:1px solid var(--neutral-200);margin:6px 0"></div>
+      <div style="grid-column:1/-1;font-weight:600;font-size:12px;color:var(--neutral-500);letter-spacing:.04em">CONTRACT & SUPPORT</div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">SmartNet Expiration</div>${dateBadge(ext.smartNet)}</div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">ParkPlace Expiration</div>${dateBadge(ext.parkPlace)}</div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">HWR Forecast</div>${dateBadge(ext.hwrForecast)}</div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Power Draw</div><strong>${ext.powerDraw}</strong></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Rack Location</div><strong>${ext.rackUnit}</strong></div>
+      <div><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Contact</div><a href="mailto:${ext.contact}" style="color:var(--primary);font-size:12px">${ext.contact}</a></div>
+      <div style="grid-column:1/-1"><div style="color:var(--neutral-400);font-size:11px;margin-bottom:2px">Notes</div><span style="color:var(--neutral-600)">${ext.notes}</span></div>`;
+  } else {
+    rows += `
+      <div style="grid-column:1/-1;margin-top:8px;padding:10px;background:var(--neutral-50);border-radius:6px;font-size:12px;color:var(--neutral-500)">
+        ℹ️ Extended contract details (SmartNet, ParkPlace) not available for this domain in the prototype.
+      </div>`;
+  }
+
+  rows += '</div>';
+
+  document.getElementById('domain-modal-title').textContent = `Domain — ${domainName}`;
+  document.getElementById('domain-modal-body').innerHTML = rows;
+  document.getElementById('domain-modal').classList.add('open');
+}
+
+// ─────────────────────────────────────────────
+// SERVER TABLE
+// ─────────────────────────────────────────────
+let serverPage=1;
+const serverPageSize=10;
+
+function renderServerTable(){
+  const search=document.getElementById('srv-search').value.toLowerCase();
+  const dom=document.getElementById('srv-domain').value;
+  const clust=document.getElementById('srv-cluster').value;
+  const stat=document.getElementById('srv-status').value;
+
+  let filtered=SERVERS.filter(s=>{
+    if(search && !s.host.toLowerCase().includes(search) && !s.serial.toLowerCase().includes(search) && !s.userLabel.includes(search)) return false;
+    if(dom && s.domain!==dom) return false;
+    if(clust && s.cluster!==clust) return false;
+    if(stat && s.status.toLowerCase()!==stat) return false;
+    return true;
+  });
+  const start=(serverPage-1)*serverPageSize;
+  const paged=filtered.slice(start,start+serverPageSize);
+  const tbody=document.getElementById('server-tbody');
+  tbody.innerHTML=paged.map(s=>{
+    const hwrDate=new Date(s.hwrForecast);
+    const hwrDays=Math.round((hwrDate-new Date())/(1000*60*60*24));
+    const hwrCls=hwrDays<90?'badge-red':hwrDays<180?'badge-yellow':'badge-green';
+    const snDate=new Date(s.smartNet);
+    const snDays=Math.round((snDate-new Date())/(1000*60*60*24));
+    const snCls=snDays<90?'badge-red':snDays<180?'badge-yellow':'badge-green';
+    return `<tr style="cursor:pointer" onclick='showServerModal(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+      <td>${s.domain}</td>
+      <td>${s.chassis}</td>
+      <td>${s.slot}</td>
+      <td style="white-space:nowrap">${s.model}</td>
+      <td>${s.cores}</td>
+      <td>${s.memory} GB</td>
+      <td style="font-family:monospace;font-size:11px">${s.serial}</td>
+      <td>${s.serviceProfile}</td>
+      <td style="font-size:11px">${s.userLabel}</td>
+      <td style="font-size:11px">${s.host}</td>
+      <td>${s.cluster}</td>
+      <td><span class="status ${s.status==='OK'?'status-ok':'status-maint'}">${s.status}</span></td>
+      <td>${s.maintenanceMode}</td>
+      <td><span class="stat-badge ${hwrCls}">${s.hwrForecast}</span></td>
+      <td><span class="stat-badge ${snCls}">${s.smartNet}</span></td>
+      <td>${s.parkPlace}</td>
+      <td style="font-size:11px;white-space:nowrap">${s.cpuName}</td>
+    </tr>`;
+  }).join('');
+  // Pagination
+  const total=Math.ceil(filtered.length/serverPageSize);
+  const pg=document.getElementById('server-pagination');
+  pg.innerHTML='';
+  for(let i=1;i<=total;i++){
+    const b=document.createElement('button');
+    b.className='page-btn'+(i===serverPage?' active':'');
+    b.textContent=i;
+    b.onclick=(()=>{const p=i;return()=>{serverPage=p;renderServerTable();};})();
+    pg.appendChild(b);
+  }
+}
+function filterServers(){ serverPage=1; renderServerTable(); }
+
+function showServerModal(s){
+  document.getElementById('server-modal-title').textContent=s.host+' — '+s.serial;
+  document.getElementById('server-modal-body').innerHTML=`
+    <div class="two-col" style="gap:10px">
+      <div><div class="stat-label">Domain</div><strong>${s.domain}</strong></div>
+      <div><div class="stat-label">Chassis / Slot</div><strong>${s.chassis} / Slot ${s.slot}</strong></div>
+      <div><div class="stat-label">Model</div><strong>${s.model}</strong></div>
+      <div><div class="stat-label">Total Cores</div><strong>${s.cores}</strong></div>
+      <div><div class="stat-label">Memory</div><strong>${s.memory} GB</strong></div>
+      <div><div class="stat-label">Serial</div><code>${s.serial}</code></div>
+      <div><div class="stat-label">Service Profile</div><strong>${s.serviceProfile}</strong></div>
+      <div><div class="stat-label">User Label</div><strong>${s.userLabel}</strong></div>
+      <div><div class="stat-label">Host</div><code>${s.host}</code></div>
+      <div><div class="stat-label">Cluster</div><strong>${s.cluster}</strong></div>
+      <div><div class="stat-label">Status</div><span class="status ${s.status==='OK'?'status-ok':'status-maint'}">${s.status}</span></div>
+      <div><div class="stat-label">Maintenance Mode</div><strong>${s.maintenanceMode}</strong></div>
+      <div><div class="stat-label">HWR Forecast</div><span class="stat-badge ${(new Date(s.hwrForecast)-new Date())<90*86400000?'badge-red':'badge-green'}">${s.hwrForecast}</span></div>
+      <div><div class="stat-label">SmartNet Expiry</div><span class="stat-badge ${(new Date(s.smartNet)-new Date())<90*86400000?'badge-red':'badge-green'}">${s.smartNet}</span></div>
+      <div><div class="stat-label">ParkPlace Expiry</div><strong>${s.parkPlace}</strong></div>
+      <div><div class="stat-label">CPU</div><strong style="font-size:12px">${s.cpuName}</strong></div>
+    </div>`;
+  document.getElementById('server-modal').classList.add('open');
+}
+
+// ─────────────────────────────────────────────
+// RESOURCE UPGRADE — AD HOC
+// ─────────────────────────────────────────────
+let reqMode = 'abs'; // 'abs' | 'pct'
+
+function setReqMode(mode){
+  reqMode = mode;
+  document.getElementById('req-mode-abs').style.background = mode==='abs' ? 'var(--primary)' : '#fff';
+  document.getElementById('req-mode-abs').style.color      = mode==='abs' ? '#fff' : 'var(--neutral-500)';
+  document.getElementById('req-mode-pct').style.background = mode==='pct' ? 'var(--primary)' : '#fff';
+  document.getElementById('req-mode-pct').style.color      = mode==='pct' ? '#fff' : 'var(--neutral-500)';
+
+  if(mode === 'pct'){
+    document.getElementById('vcpu-req').min=-50; document.getElementById('vcpu-req').max=200; document.getElementById('vcpu-req').step=5;  document.getElementById('vcpu-req').value=50;
+    document.getElementById('mem-req').min=-50;  document.getElementById('mem-req').max=200;  document.getElementById('mem-req').step=5;   document.getElementById('mem-req').value=50;
+    document.getElementById('stor-req').min=-50; document.getElementById('stor-req').max=200; document.getElementById('stor-req').step=5;  document.getElementById('stor-req').value=50;
+    document.getElementById('vcpu-label').textContent  = 'vCPU Growth %';
+    document.getElementById('mem-label').textContent   = 'Memory Growth %';
+    document.getElementById('stor-label').textContent  = 'Storage Growth %';
+  } else {
+    document.getElementById('vcpu-req').min=1;  document.getElementById('vcpu-req').max=64;   document.getElementById('vcpu-req').step=1;   document.getElementById('vcpu-req').value=VM_BEFORE.cpu;
+    document.getElementById('mem-req').min=1;   document.getElementById('mem-req').max=512;   document.getElementById('mem-req').step=8;   document.getElementById('mem-req').value=VM_BEFORE.mem;
+    document.getElementById('stor-req').min=50; document.getElementById('stor-req').max=4000; document.getElementById('stor-req').step=50; document.getElementById('stor-req').value=VM_BEFORE.stor;
+    document.getElementById('vcpu-label').textContent  = 'vCPU Request';
+    document.getElementById('mem-label').textContent   = 'Memory Request (GB)';
+    document.getElementById('stor-label').textContent  = 'Storage Request (GB)';
+  }
+  syncReqLabel('vcpu'); syncReqLabel('mem'); syncReqLabel('stor');
+  updatePreview();
+}
+
+function syncReqLabel(res){
+  const val = parseInt(document.getElementById(res+'-req').value);
+  if(reqMode === 'pct'){
+    const base = {vcpu:VM_BEFORE.cpu, mem:VM_BEFORE.mem, stor:VM_BEFORE.stor}[res];
+    const abs  = Math.max(1, Math.round(base * (1 + val/100)));
+    const sign = val > 0 ? '+' : '';
+    const unit = res==='vcpu' ? 'vCPU' : 'GB';
+    document.getElementById(res+'-val').textContent = `${sign}${val}% → ${abs} ${unit}`;
+  } else {
+    document.getElementById(res+'-val').textContent = val + (res==='vcpu'?' vCPU':' GB');
+  }
+}
+
+function resolveReqValue(res){
+  const raw = parseInt(document.getElementById(res+'-req').value);
+  if(reqMode === 'pct'){
+    const base = {vcpu:VM_BEFORE.cpu, mem:VM_BEFORE.mem, stor:VM_BEFORE.stor}[res];
+    return Math.max(1, Math.round(base * (1 + raw/100)));
+  }
+  return raw;
+}
+
+function updatePreview(){
+  const vmName=(document.getElementById('vm-name').value||'').trim();
+  const isDb001 = vmName === 'vm-prod-db-001';
+  const btnHistory = document.getElementById('btn-history');
+  if(btnHistory) btnHistory.style.display = isDb001 ? '' : 'none';
+  if(!isDb001){
+    const panel = document.getElementById('adhoc-history-panel');
+    if(panel) panel.style.display = 'none';
+  }
+
+  const cpuAfter=resolveReqValue('vcpu');
+  const memAfter=resolveReqValue('mem');
+  const storAfter=resolveReqValue('stor');
+  const cpuBefore=VM_BEFORE.cpu;
+  const memBefore=VM_BEFORE.mem;
+  const storBefore=VM_BEFORE.stor;
+
+  // Projected utilization: scale % by resource ratio, capped at 99
+  const cpuRatio   = cpuAfter   / cpuBefore;
+  const memRatio   = memAfter   / memBefore;
+  const storRatio  = storAfter  / storBefore;
+  const projCpuPct     = Math.min(99, +(VM_BEFORE.cpuPct     / cpuRatio).toFixed(1));
+  const projPeakCpuPct = Math.min(99, +(VM_BEFORE.peakCpuPct / cpuRatio).toFixed(1));
+  const projMemPct     = Math.min(99, +(VM_BEFORE.memPct     / memRatio).toFixed(1));
+  const projPeakMemPct = Math.min(99, +(VM_BEFORE.peakMemPct / memRatio).toFixed(1));
+  const projStorPct    = Math.min(99, +(VM_BEFORE.storPct    / storRatio).toFixed(1));
+
+  function pctBadge(v){ const c=v>=85?'#dc2626':v>=70?'#d97706':'#16a34a'; return `<span style="font-weight:600;color:${c}">${v}%</span>`; }
+  function growthCell(before, after, suffix=''){
+    const delta = typeof after==='number' && typeof before==='number' ? +(after-before).toFixed(1) : null;
+    if(delta===null) return '—';
+    const sign = delta>0?'▲':delta<0?'▼':'—';
+    const col  = delta>0?'#dc2626':delta<0?'#16a34a':'#64748b';
+    return `<span style="color:${col};font-weight:600">${sign} ${Math.abs(delta)}${suffix}</span>`;
+  }
+  function sectionRow(label){
+    return `<tr style="background:var(--neutral-50)"><td colspan="4" style="font-weight:700;font-size:11px;letter-spacing:.05em;color:var(--neutral-500);padding:8px 12px">${label}</td></tr>`;
+  }
+
+  const tbody = document.getElementById('compare-tbody');
+  tbody.innerHTML =
+    sectionRow('CPU') +
+    `<tr><td style="padding-left:20px">Allocated vCPUs</td><td>${cpuBefore} vCPU</td><td>${cpuAfter} vCPU</td><td>${growthCell(cpuBefore,cpuAfter,' vCPU')}</td></tr>` +
+    `<tr><td style="padding-left:20px">CPU Utilization %</td><td>${pctBadge(VM_BEFORE.cpuPct)}</td><td>${pctBadge(projCpuPct)}</td><td>${growthCell(VM_BEFORE.cpuPct,projCpuPct,'%')}</td></tr>` +
+    `<tr><td style="padding-left:20px">Peak CPU %</td><td>${pctBadge(VM_BEFORE.peakCpuPct)}</td><td>${pctBadge(projPeakCpuPct)}</td><td>${growthCell(VM_BEFORE.peakCpuPct,projPeakCpuPct,'%')}</td></tr>` +
+    sectionRow('MEMORY') +
+    `<tr><td style="padding-left:20px">Allocated Memory</td><td>${memBefore} GB</td><td>${memAfter} GB</td><td>${growthCell(memBefore,memAfter,' GB')}</td></tr>` +
+    `<tr><td style="padding-left:20px">Memory Utilization %</td><td>${pctBadge(VM_BEFORE.memPct)}</td><td>${pctBadge(projMemPct)}</td><td>${growthCell(VM_BEFORE.memPct,projMemPct,'%')}</td></tr>` +
+    `<tr><td style="padding-left:20px">Peak Memory %</td><td>${pctBadge(VM_BEFORE.peakMemPct)}</td><td>${pctBadge(projPeakMemPct)}</td><td>${growthCell(VM_BEFORE.peakMemPct,projPeakMemPct,'%')}</td></tr>` +
+    sectionRow('STORAGE') +
+    `<tr><td style="padding-left:20px">Allocated Storage</td><td>${storBefore} GB</td><td>${storAfter} GB</td><td>${growthCell(storBefore,storAfter,' GB')}</td></tr>` +
+    `<tr><td style="padding-left:20px">Storage Utilization %</td><td>${pctBadge(VM_BEFORE.storPct)}</td><td>${pctBadge(projStorPct)}</td><td>${growthCell(VM_BEFORE.storPct,projStorPct,'%')}</td></tr>`;
+
+  // Cluster impact (simple linear model: delta / cluster capacity adds to base utilization)
+  const clusterTotalCPU=1024, clusterTotalMem=8192, clusterTotalStor=50000;
+  const cpuImpact=((cpuAfter-cpuBefore)/clusterTotalCPU)*100;
+  const memImpact=((memAfter-memBefore)/clusterTotalMem)*100;
+  const storImpact=((storAfter-storBefore)/clusterTotalStor)*100;
+  const newCpu=Math.min(99,+(CLUSTER_BASE.cpu+cpuImpact).toFixed(1));
+  const newMem=Math.min(99,+(CLUSTER_BASE.mem+memImpact).toFixed(1));
+  const newStor=Math.min(99,+(CLUSTER_BASE.stor+storImpact).toFixed(1));
+
+  setUtil('cl-cpu',newCpu,THRESHOLDS.cpu);
+  setUtil('cl-mem',newMem,THRESHOLDS.mem);
+  setUtil('cl-stor',newStor,THRESHOLDS.stor);
+
+  // Threshold alert
+  const alerts=[];
+  if(newCpu>THRESHOLDS.cpu) alerts.push(`CPU will reach ${newCpu}% (threshold: ${THRESHOLDS.cpu}%)`);
+  if(newMem>THRESHOLDS.mem) alerts.push(`Memory will reach ${newMem}% (threshold: ${THRESHOLDS.mem}%)`);
+  if(newStor>THRESHOLDS.stor) alerts.push(`Storage will reach ${newStor}% (threshold: ${THRESHOLDS.stor}%)`);
+  const alertEl=document.getElementById('threshold-alert');
+  if(alerts.length){
+    alertEl.innerHTML=`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:10px 12px;font-size:12px;color:#9a3412">
+      <strong>⚠️ Threshold Warning</strong><ul style="margin:4px 0 0 16px">${alerts.map(a=>`<li>${a}</li>`).join('')}</ul>
+    </div>`;
+  } else {
+    alertEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:12px;color:#15803d">✓ All cluster utilization metrics remain within thresholds</div>`;
+  }
+
+  // Cost
+  const cpuCostBef=cpuBefore*(PRICING.cpu+PRICING.vcpuLicense);
+  const cpuCostAft=cpuAfter*(PRICING.cpu+PRICING.vcpuLicense);
+  const memCostBef=memBefore*PRICING.mem;
+  const memCostAft=memAfter*PRICING.mem;
+  const storCostBef=storBefore*PRICING.stor;
+  const storCostAft=storAfter*PRICING.stor;
+  const totalBef=cpuCostBef+memCostBef+storCostBef;
+  const totalAft=cpuCostAft+memCostAft+storCostAft;
+  const totalDelta=totalAft-totalBef;
+
+  document.getElementById('cost-tbody').innerHTML=`
+    <tr><td>vCPU (incl. license)</td><td>$${cpuCostBef.toFixed(2)}</td><td>$${cpuCostAft.toFixed(2)}</td><td class="${totalDelta>=0?'change':''}">${totalDelta>=0?'+':''} $${(cpuCostAft-cpuCostBef).toFixed(2)}</td></tr>
+    <tr><td>Memory</td><td>$${memCostBef.toFixed(2)}</td><td>$${memCostAft.toFixed(2)}</td><td class="change">+$${(memCostAft-memCostBef).toFixed(2)}</td></tr>
+    <tr><td>Storage</td><td>$${storCostBef.toFixed(2)}</td><td>$${storCostAft.toFixed(2)}</td><td class="change">+$${(storCostAft-storCostBef).toFixed(2)}</td></tr>
+  `;
+  const sign=totalDelta>=0?'+':'';
+  document.getElementById('cost-total').innerHTML=`Monthly Total: $${totalBef.toFixed(2)} → <span style="color:var(--primary)">$${totalAft.toFixed(2)}</span> &nbsp;(<span style="color:${totalDelta>0?'var(--danger)':'var(--success)'}">+$${totalDelta.toFixed(2)}/mo</span>)`;
+}
+
+function setUtil(id, pct, threshold){
+  const bar=document.getElementById(id+'-bar');
+  const label=document.getElementById(id+'-pct');
+  const fillClass=pct>threshold?'fill-red':pct>threshold*0.85?'fill-yellow':'fill-green';
+  bar.className='progress-fill '+fillClass;
+  bar.style.width=pct+'%';
+  label.textContent=pct+'%';
+  label.className='util-pct '+(pct>threshold?'danger':pct>threshold*0.85?'warn':'ok');
+}
+
+function approveAdhoc(){
+  showToast('VM upgrade approved and queued for implementation','success');
+  document.getElementById('threshold-alert').innerHTML=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px;font-size:12px;color:#15803d;margin-top:8px">✅ Request approved — configuration change logged</div>`;
+}
+
+// ─────────────────────────────────────────────
+// BULK ANALYSIS
+// ─────────────────────────────────────────────
+let bulkMode = 'abs';
+let bulkRowId = 0;
+
+function setBulkMode(mode){
+  bulkMode = mode;
+  const isAbs = mode === 'abs';
+  document.getElementById('bulk-mode-abs').style.cssText += isAbs ? ';background:var(--primary);color:#fff' : ';background:#fff;color:var(--neutral-500)';
+  document.getElementById('bulk-mode-pct').style.cssText += !isAbs ? ';background:var(--primary);color:#fff' : ';background:#fff;color:var(--neutral-500)';
+  document.getElementById('bulk-th-cpu').textContent  = isAbs ? 'vCPU Request'    : 'vCPU Growth %';
+  document.getElementById('bulk-th-mem').textContent  = isAbs ? 'Memory (GB)'     : 'Memory Growth %';
+  document.getElementById('bulk-th-stor').textContent = isAbs ? 'Storage (GB)'    : 'Storage Growth %';
+  document.querySelectorAll('.bulk-cpu-unit,.bulk-mem-unit,.bulk-stor-unit').forEach(el=>{
+    el.textContent = isAbs ? el.dataset.absLabel : '%';
+  });
+  // Reset placeholder hints
+  document.querySelectorAll('.bulk-cpu-inp').forEach(el=>{ el.placeholder = isAbs?'vCPUs':'% (e.g. 50)'; el.min = isAbs?1:-50; el.max = isAbs?64:200; });
+  document.querySelectorAll('.bulk-mem-inp').forEach(el=>{ el.placeholder = isAbs?'GB':'% (e.g. 25)';   el.min = isAbs?1:-50; el.max = isAbs?512:200; });
+  document.querySelectorAll('.bulk-stor-inp').forEach(el=>{ el.placeholder = isAbs?'GB':'% (e.g. 10)';  el.min = isAbs?50:-50; el.max = isAbs?4000:200; });
+}
+
+function addBulkRow(vmName, cluster, cpu, mem, stor){
+  const id = ++bulkRowId;
+  const clusterOpts = ['cluster-prod-01','cluster-prod-02','cluster-dev-01','cluster-mgmt-01']
+    .map(c=>`<option${c===(cluster||'cluster-prod-01')?' selected':''}>${c}</option>`).join('');
+  const row = document.createElement('tr');
+  row.id = 'bulk-row-'+id;
+  row.innerHTML = `
+    <td><input type="text" class="bulk-vm-inp" value="${vmName||''}" placeholder="vm-name" style="width:100%;font-size:12px;border:1px solid var(--neutral-200);border-radius:4px;padding:4px 6px" /></td>
+    <td><select class="bulk-cl-inp" style="font-size:12px;width:100%">${clusterOpts}</select></td>
+    <td><input type="number" class="bulk-cpu-inp" value="${cpu||VM_BEFORE.cpu}" min="1" max="64" style="width:70px;font-size:12px;border:1px solid var(--neutral-200);border-radius:4px;padding:4px 6px" placeholder="vCPUs" /><span class="bulk-cpu-unit" data-abs-label=" vCPU" style="font-size:11px;color:var(--neutral-400);margin-left:3px"> vCPU</span></td>
+    <td><input type="number" class="bulk-mem-inp" value="${mem||VM_BEFORE.mem}" min="1" max="512" style="width:70px;font-size:12px;border:1px solid var(--neutral-200);border-radius:4px;padding:4px 6px" placeholder="GB" /><span class="bulk-mem-unit" data-abs-label=" GB" style="font-size:11px;color:var(--neutral-400);margin-left:3px"> GB</span></td>
+    <td><input type="number" class="bulk-stor-inp" value="${stor||VM_BEFORE.stor}" min="50" max="4000" style="width:80px;font-size:12px;border:1px solid var(--neutral-200);border-radius:4px;padding:4px 6px" placeholder="GB" /><span class="bulk-stor-unit" data-abs-label=" GB" style="font-size:11px;color:var(--neutral-400);margin-left:3px"> GB</span></td>
+    <td><input type="text" style="width:100%;font-size:11px;border:1px solid var(--neutral-200);border-radius:4px;padding:4px 6px" placeholder="Reason…" /></td>
+    <td style="text-align:center"><button onclick="removeBulkRow(${id})" style="background:none;border:none;color:var(--neutral-400);cursor:pointer;font-size:16px;line-height:1" title="Remove">✕</button></td>`;
+  document.getElementById('bulk-tbody').appendChild(row);
+  if(bulkMode==='pct') setBulkMode('pct'); // sync labels for new row
+}
+
+function removeBulkRow(id){
+  const el = document.getElementById('bulk-row-'+id);
+  if(el) el.remove();
+}
+
+function resolveBulkVal(raw, base){
+  if(bulkMode==='pct') return Math.max(1, Math.round(base*(1+raw/100)));
+  return Math.max(1, raw);
+}
+
+function buildBulkMetricsHTML(cpuAft, memAft, storAft, cardId, clusterOverride){
+  const cpuBef  = VM_BEFORE.cpu,  memBef = VM_BEFORE.mem,  storBef = VM_BEFORE.stor;
+  const cpuRatio = cpuAft/cpuBef, memRatio = memAft/memBef, storRatio = storAft/storBef;
+  const projCpuPct     = Math.min(99,+(VM_BEFORE.cpuPct    /cpuRatio).toFixed(1));
+  const projPeakCpuPct = Math.min(99,+(VM_BEFORE.peakCpuPct/cpuRatio).toFixed(1));
+  const projMemPct     = Math.min(99,+(VM_BEFORE.memPct    /memRatio).toFixed(1));
+  const projPeakMemPct = Math.min(99,+(VM_BEFORE.peakMemPct/memRatio).toFixed(1));
+  const projStorPct    = Math.min(99,+(VM_BEFORE.storPct   /storRatio).toFixed(1));
+
+  // Cluster impact — use externally-computed cumulative values if provided
+  const cpuImpact  = ((cpuAft -cpuBef) /1024)*100;
+  const memImpact  = ((memAft -memBef) /8192)*100;
+  const storImpact = ((storAft-storBef)/50000)*100;
+  const clCpu  = clusterOverride ? clusterOverride.cpu  : Math.min(99,+(CLUSTER_BASE.cpu +cpuImpact).toFixed(1));
+  const clMem  = clusterOverride ? clusterOverride.mem  : Math.min(99,+(CLUSTER_BASE.mem +memImpact).toFixed(1));
+  const clStor = clusterOverride ? clusterOverride.stor : Math.min(99,+(CLUSTER_BASE.stor+storImpact).toFixed(1));
+
+  // Cost
+  const cpuCostBef  = cpuBef  * (PRICING.cpu+PRICING.vcpuLicense);
+  const cpuCostAft  = cpuAft  * (PRICING.cpu+PRICING.vcpuLicense);
+  const memCostBef  = memBef  *  PRICING.mem;
+  const memCostAft  = memAft  *  PRICING.mem;
+  const storCostBef = storBef *  PRICING.stor;
+  const storCostAft = storAft *  PRICING.stor;
+  const totalBef = cpuCostBef+memCostBef+storCostBef;
+  const totalAft = cpuCostAft+memCostAft+storCostAft;
+
+  function pctBadge(v){ const c=v>=85?'#dc2626':v>=70?'#d97706':'#16a34a'; return `<span style="font-weight:600;color:${c}">${v}%</span>`; }
+  function growth(bef,aft,sfx=''){
+    const d=+(aft-bef).toFixed(1);
+    const sign=d>0?'▲':d<0?'▼':'–'; const col=d>0?'#dc2626':d<0?'#16a34a':'#64748b';
+    return `<span style="color:${col};font-weight:600">${sign} ${Math.abs(d)}${sfx}</span>`;
+  }
+  function clBar(v,thr){ const fill=v>=thr?'fill-red':v>=70?'fill-yellow':'fill-green'; const cls=v>=thr?'danger':v>=70?'warn':'ok';
+    return `<div class="util-row"><div class="util-label">${v>=thr?'⚠ ':''}</div><div class="util-bar-wrap"><div class="progress-wrap"><div class="progress-fill ${fill}" style="width:${v}%"></div></div></div><div class="util-pct ${cls}">${v}%</div></div>`; }
+  function secRow(label){ return `<tr style="background:var(--neutral-50)"><td colspan="4" style="font-weight:700;font-size:11px;letter-spacing:.05em;color:var(--neutral-500);padding:6px 12px">${label}</td></tr>`; }
+
+  const metricsRows =
+    secRow('CPU') +
+    `<tr><td style="padding-left:16px;font-size:12px">Allocated vCPUs</td><td>${cpuBef} vCPU</td><td>${cpuAft} vCPU</td><td>${growth(cpuBef,cpuAft,' vCPU')}</td></tr>` +
+    `<tr><td style="padding-left:16px;font-size:12px">CPU Utilization %</td><td>${pctBadge(VM_BEFORE.cpuPct)}</td><td>${pctBadge(projCpuPct)}</td><td>${growth(VM_BEFORE.cpuPct,projCpuPct,'%')}</td></tr>` +
+    `<tr><td style="padding-left:16px;font-size:12px">Peak CPU %</td><td>${pctBadge(VM_BEFORE.peakCpuPct)}</td><td>${pctBadge(projPeakCpuPct)}</td><td>${growth(VM_BEFORE.peakCpuPct,projPeakCpuPct,'%')}</td></tr>` +
+    secRow('MEMORY') +
+    `<tr><td style="padding-left:16px;font-size:12px">Allocated Memory</td><td>${memBef} GB</td><td>${memAft} GB</td><td>${growth(memBef,memAft,' GB')}</td></tr>` +
+    `<tr><td style="padding-left:16px;font-size:12px">Memory Utilization %</td><td>${pctBadge(VM_BEFORE.memPct)}</td><td>${pctBadge(projMemPct)}</td><td>${growth(VM_BEFORE.memPct,projMemPct,'%')}</td></tr>` +
+    `<tr><td style="padding-left:16px;font-size:12px">Peak Memory %</td><td>${pctBadge(VM_BEFORE.peakMemPct)}</td><td>${pctBadge(projPeakMemPct)}</td><td>${growth(VM_BEFORE.peakMemPct,projPeakMemPct,'%')}</td></tr>` +
+    secRow('STORAGE') +
+    `<tr><td style="padding-left:16px;font-size:12px">Allocated Storage</td><td>${storBef} GB</td><td>${storAft} GB</td><td>${growth(storBef,storAft,' GB')}</td></tr>` +
+    `<tr><td style="padding-left:16px;font-size:12px">Storage Utilization %</td><td>${pctBadge(VM_BEFORE.storPct)}</td><td>${pctBadge(projStorPct)}</td><td>${growth(VM_BEFORE.storPct,projStorPct,'%')}</td></tr>`;
+
+  const alerts = [];
+  if(clCpu>=THRESHOLDS.cpu) alerts.push(`CPU will reach ${clCpu}% (threshold: ${THRESHOLDS.cpu}%)`);
+  if(clMem>=THRESHOLDS.mem) alerts.push(`Memory will reach ${clMem}% (threshold: ${THRESHOLDS.mem}%)`);
+  if(clStor>=THRESHOLDS.stor) alerts.push(`Storage will reach ${clStor}% (threshold: ${THRESHOLDS.stor}%)`);
+  const alertHtml = alerts.length ? `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:8px 12px;font-size:12px;color:#854d0e;margin-top:8px">${alerts.map(a=>`⚠ ${a}`).join('<br>')}</div>` : `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:12px;color:#15803d;margin-top:8px">✅ All cluster thresholds within limits</div>`;
+
+  const costRows =
+    `<tr><td>vCPU</td><td>$${cpuCostBef.toFixed(0)}</td><td>$${cpuCostAft.toFixed(0)}</td><td>${growth(cpuCostBef,cpuCostAft)}</td></tr>` +
+    `<tr><td>Memory</td><td>$${memCostBef.toFixed(0)}</td><td>$${memCostAft.toFixed(0)}</td><td>${growth(memCostBef,memCostAft)}</td></tr>` +
+    `<tr><td>Storage</td><td>$${storCostBef.toFixed(0)}</td><td>$${storCostAft.toFixed(0)}</td><td>${growth(storCostBef,storCostAft)}</td></tr>`;
+
+  const totalDelta = totalAft-totalBef;
+  const totalSign  = totalDelta>=0?'+':'-';
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:14px 16px">
+      <!-- VM Config -->
+      <div style="grid-column:1/3">
+        <div style="font-size:11px;font-weight:700;color:var(--neutral-500);letter-spacing:.04em;margin-bottom:6px">VM CONFIGURATION — BEFORE / AFTER</div>
+        <table class="comparison-table" style="width:100%">
+          <thead><tr><th>Metric</th><th>Current (Before)</th><th>Projected (After)</th><th>Growth</th></tr></thead>
+          <tbody>${metricsRows}</tbody>
+        </table>
+      </div>
+      <!-- Right column: cluster + cost -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--neutral-500);letter-spacing:.04em;margin-bottom:6px">CLUSTER IMPACT — AFTER CHANGE</div>
+          <div style="font-size:11px;color:var(--neutral-400);margin-bottom:4px">CPU</div>
+          ${clBar(clCpu,THRESHOLDS.cpu)}
+          <div style="font-size:11px;color:var(--neutral-400);margin:4px 0">Memory</div>
+          ${clBar(clMem,THRESHOLDS.mem)}
+          <div style="font-size:11px;color:var(--neutral-400);margin:4px 0">Storage</div>
+          ${clBar(clStor,THRESHOLDS.stor)}
+          ${alertHtml}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--neutral-500);letter-spacing:.04em;margin-bottom:6px">COST ESTIMATE (MONTHLY)</div>
+          <table class="comparison-table" style="width:100%">
+            <thead><tr><th>Item</th><th>Before</th><th>After</th><th>Δ</th></tr></thead>
+            <tbody>${costRows}</tbody>
+          </table>
+          <div style="text-align:right;font-weight:700;font-size:13px;margin-top:8px;color:var(--primary)">
+            Total: $${totalBef.toFixed(0)} → $${totalAft.toFixed(0)} &nbsp;<span style="color:${totalDelta>0?'#dc2626':'#16a34a'}">(${totalSign}$${Math.abs(totalDelta).toFixed(0)}/mo)</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function analyzeBulk(){
+  const rows = document.querySelectorAll('#bulk-tbody tr');
+  if(!rows.length){ showToast('Add at least one VM to analyze',''); return; }
+
+  // Resolve all VM requests first
+  const vms = [];
+  rows.forEach(row=>{
+    const vm     = row.querySelector('.bulk-vm-inp').value.trim() || '(unnamed)';
+    const cl     = row.querySelector('.bulk-cl-inp').value;
+    const cpuRaw = parseFloat(row.querySelector('.bulk-cpu-inp').value)||VM_BEFORE.cpu;
+    const memRaw = parseFloat(row.querySelector('.bulk-mem-inp').value)||VM_BEFORE.mem;
+    const storRaw= parseFloat(row.querySelector('.bulk-stor-inp').value)||VM_BEFORE.stor;
+    vms.push({ vm, cl,
+      cpuAft: resolveBulkVal(cpuRaw, VM_BEFORE.cpu),
+      memAft: resolveBulkVal(memRaw, VM_BEFORE.mem),
+      storAft:resolveBulkVal(storRaw,VM_BEFORE.stor)
+    });
+  });
+
+  // Compute cumulative cluster deltas — group by cluster name
+  const clusterDeltas = {};
+  vms.forEach(v=>{
+    if(!clusterDeltas[v.cl]) clusterDeltas[v.cl]={cpuDelta:0,memDelta:0,storDelta:0};
+    clusterDeltas[v.cl].cpuDelta  += v.cpuAft  - VM_BEFORE.cpu;
+    clusterDeltas[v.cl].memDelta  += v.memAft  - VM_BEFORE.mem;
+    clusterDeltas[v.cl].storDelta += v.storAft - VM_BEFORE.stor;
+  });
+  // Convert deltas to projected cluster utilization
+  const clusterImpact = {};
+  Object.entries(clusterDeltas).forEach(([cl,d])=>{
+    clusterImpact[cl] = {
+      cpu : Math.min(99,+(CLUSTER_BASE.cpu  + (d.cpuDelta /1024)*100).toFixed(1)),
+      mem : Math.min(99,+(CLUSTER_BASE.mem  + (d.memDelta /8192)*100).toFixed(1)),
+      stor: Math.min(99,+(CLUSTER_BASE.stor + (d.storDelta/50000)*100).toFixed(1))
+    };
+  });
+
+  const cards = document.getElementById('bulk-results-cards');
+  cards.innerHTML = '';
+
+  // Group VMs by cluster for rendering
+  const clusterOrder = [...new Set(vms.map(v=>v.cl))];
+  let globalIdx = 0;
+
+  clusterOrder.forEach(cl=>{
+    const group = vms.filter(v=>v.cl===cl);
+    const impact = clusterImpact[cl];
+    const multiVM = group.length > 1;
+
+    // Cluster group wrapper when >1 VM share a cluster
+    let groupEl;
+    if(multiVM){
+      const cpuOver  = impact.cpu >=THRESHOLDS.cpu;
+      const memOver  = impact.mem >=THRESHOLDS.mem;
+      const storOver = impact.stor>=THRESHOLDS.stor;
+      const anyOver  = cpuOver||memOver||storOver;
+      function bar(v,thr){ const f=v>=thr?'fill-red':v>=70?'fill-yellow':'fill-green'; const c=v>=thr?'danger':v>=70?'warn':'ok';
+        return `<div class="util-row" style="margin:3px 0"><div class="util-bar-wrap" style="flex:1"><div class="progress-wrap"><div class="progress-fill ${f}" style="width:${v}%"></div></div></div><div class="util-pct ${c}" style="width:40px">${v}%</div></div>`; }
+
+      groupEl = document.createElement('div');
+      groupEl.style.cssText = 'border:2px solid var(--primary);border-radius:8px;margin-bottom:16px;overflow:hidden';
+      groupEl.innerHTML = `
+        <div style="background:var(--primary);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-weight:700;font-size:13px">🖥 ${cl}</span>
+            <span style="font-size:12px;opacity:.85">${group.length} VMs — cumulative cluster impact</span>
+            ${anyOver?'<span style="background:#fef9c3;color:#854d0e;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600">⚠ Threshold Breach</span>':'<span style="background:#dcfce7;color:#15803d;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600">✓ Within Limits</span>'}
+          </div>
+          <button class="btn btn-sm btn-green bulk-approve-btn" onclick="approveSingleBulk(this)" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);color:#fff">✓ Approve All in Cluster</button>
+        </div>
+        <div style="padding:12px 16px;background:#f8fafc;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--neutral-500);margin-bottom:4px">CPU (cumulative Δ: ${clusterDeltas[cl].cpuDelta>0?'+':''}${clusterDeltas[cl].cpuDelta} vCPU)</div>
+            ${bar(impact.cpu,THRESHOLDS.cpu)}
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--neutral-500);margin-bottom:4px">Memory (cumulative Δ: ${clusterDeltas[cl].memDelta>0?'+':''}${clusterDeltas[cl].memDelta} GB)</div>
+            ${bar(impact.mem,THRESHOLDS.mem)}
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--neutral-500);margin-bottom:4px">Storage (cumulative Δ: ${clusterDeltas[cl].storDelta>0?'+':''}${clusterDeltas[cl].storDelta} GB)</div>
+            ${bar(impact.stor,THRESHOLDS.stor)}
+          </div>
+        </div>
+        <div style="padding:0 8px 8px" id="cluster-vms-${cl.replace(/[^a-z0-9]/gi,'_')}"></div>`;
+      cards.appendChild(groupEl);
+    }
+
+    group.forEach(v=>{
+      const cardId = 'bcard-'+(globalIdx++);
+      const projCpuPct = Math.min(99,+(VM_BEFORE.cpuPct/(v.cpuAft/VM_BEFORE.cpu)).toFixed(1));
+      const projMemPct = Math.min(99,+(VM_BEFORE.memPct/(v.memAft/VM_BEFORE.mem)).toFixed(1));
+      const overThr = projCpuPct>THRESHOLDS.cpu || projMemPct>THRESHOLDS.mem;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = cardId;
+      card.style.cssText = multiVM ? 'margin:6px 0' : 'margin-bottom:12px';
+      card.innerHTML = `
+        <div class="card-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="toggleBulkCard('${cardId}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700">${v.vm}</span>
+            ${!multiVM?`<span style="font-size:12px;color:var(--neutral-500)">${v.cl}</span>`:''}
+            <span class="status ${overThr?'status-warn':'status-ok'}" style="font-size:11px">${overThr?'Review Needed':'Within Limits'}</span>
+            <span style="font-size:11px;color:var(--neutral-400)">${VM_BEFORE.cpu}→${v.cpuAft} vCPU &nbsp;|&nbsp; ${VM_BEFORE.mem}→${v.memAft} GB &nbsp;|&nbsp; ${VM_BEFORE.stor}→${v.storAft} GB</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-sm btn-green bulk-approve-btn" onclick="event.stopPropagation();approveSingleBulk(this)">✓ Approve</button>
+            <span class="bulk-card-toggle" style="font-size:18px;color:var(--neutral-400)">▼</span>
+          </div>
+        </div>
+        <div class="bulk-card-body">${buildBulkMetricsHTML(v.cpuAft,v.memAft,v.storAft,cardId,impact)}</div>`;
+
+      if(multiVM){
+        document.getElementById('cluster-vms-'+cl.replace(/[^a-z0-9]/gi,'_')).appendChild(card);
+      } else {
+        cards.appendChild(card);
+      }
+    });
+  });
+
+  document.getElementById('bulk-results-title').textContent = `Analysis Results — ${vms.length} VM${vms.length>1?'s':''} across ${clusterOrder.length} cluster${clusterOrder.length>1?'s':''}`;
+  document.getElementById('bulk-results').style.display = 'block';
+  showToast(`Analyzed ${vms.length} VM${vms.length>1?'s':''}`, 'success');
+}
+
+function toggleBulkCard(cardId){
+  const body = document.querySelector('#'+cardId+' .bulk-card-body');
+  const toggle = document.querySelector('#'+cardId+' .bulk-card-toggle');
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  toggle.textContent = collapsed ? '▼' : '▶';
+}
+
+function expandAllBulk(){
+  document.querySelectorAll('.bulk-card-body').forEach(b=>b.style.display='');
+  document.querySelectorAll('.bulk-card-toggle').forEach(t=>t.textContent='▼');
+}
+
+function collapseAllBulk(){
+  document.querySelectorAll('.bulk-card-body').forEach(b=>b.style.display='none');
+  document.querySelectorAll('.bulk-card-toggle').forEach(t=>t.textContent='▶');
+}
+
+function approveSingleBulk(btn){
+  btn.textContent='✓ Approved'; btn.disabled=true; btn.style.opacity='.6';
+  const header = btn.closest('.card-header');
+  const statusEl = header.querySelector('.status');
+  if(statusEl){ statusEl.className='status status-ok'; statusEl.textContent='Approved'; }
+}
+
+function approveBulk(){
+  const btns = document.querySelectorAll('.bulk-approve-btn');
+  if(!btns.length){ showToast('Run Analyze All first',''); return; }
+  btns.forEach(btn=>{ if(!btn.disabled) approveSingleBulk(btn); });
+  showToast('All bulk requests approved','success');
+}
+
+function clearBulkResults(){
+  document.getElementById('bulk-results').style.display='none';
+  document.getElementById('bulk-results-cards').innerHTML='';
+}
+
+function initBulkRows(){
+  // Pre-populate 3 example rows
+  addBulkRow('vm-prod-web-011','cluster-prod-01',16,64,500);
+  addBulkRow('vm-prod-db-042','cluster-prod-02',32,128,1000);
+  addBulkRow('vm-dev-svc-007','cluster-dev-01',8,32,250);
+}
+
+// ─────────────────────────────────────────────
+// AD-HOC HISTORY (vm-prod-db-001 only, max 5)
+// ─────────────────────────────────────────────
+const ADHOC_HISTORY_DB001 = [
+  {ts:'2026-04-17 14:32', vcpuBefore:8,  vcpuAfter:16, memBefore:32,  memAfter:64,  storBefore:200, storAfter:500, cluster:'cluster-prod-01', action:'Approved', by:'A. Patel'},
+  {ts:'2026-04-10 09:15', vcpuBefore:4,  vcpuAfter:8,  memBefore:16,  memAfter:32,  storBefore:100, storAfter:200, cluster:'cluster-prod-01', action:'Approved', by:'S. Kim'},
+  {ts:'2026-03-28 11:47', vcpuBefore:4,  vcpuAfter:4,  memBefore:16,  memAfter:16,  storBefore:50,  storAfter:100, cluster:'cluster-prod-01', action:'Draft',    by:'R. Chen'},
+  {ts:'2026-03-12 16:05', vcpuBefore:2,  vcpuAfter:4,  memBefore:8,   memAfter:16,  storBefore:50,  storAfter:50,  cluster:'cluster-prod-02', action:'Rejected', by:'M. Torres'},
+  {ts:'2026-02-20 10:30', vcpuBefore:2,  vcpuAfter:2,  memBefore:8,   memAfter:8,   storBefore:50,  storAfter:50,  cluster:'cluster-prod-02', action:'Approved', by:'A. Patel'},
+];
+
+function toggleAdhocHistory(){
+  const panel = document.getElementById('adhoc-history-panel');
+  const visible = panel.style.display !== 'none';
+  if(!visible){ renderAdhocHistory(); }
+  panel.style.display = visible ? 'none' : 'block';
+}
+
+function renderAdhocHistory(){
+  const tbody = document.getElementById('adhoc-history-tbody');
+  const actionColor = {Approved:'status-ok', Rejected:'status-off', Draft:'status-warn'};
+  tbody.innerHTML = ADHOC_HISTORY_DB001.slice(0,5).map(h=>`
+    <tr>
+      <td>${h.ts}</td>
+      <td>${h.vcpuBefore} → ${h.vcpuAfter} vCPU</td>
+      <td>${h.memBefore} → ${h.memAfter} GB</td>
+      <td>${h.storBefore} → ${h.storAfter} GB</td>
+      <td>${h.cluster}</td>
+      <td><span class="status ${actionColor[h.action]||'status-warn'}">${h.action}</span></td>
+      <td>${h.by}</td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// SERVICENOW QUEUE
+// ─────────────────────────────────────────────
+let snowData=[...SNOW];
+let snowPage=1;
+const snowPageSize=8;
+
+function renderSnowTable(){
+  const search=document.getElementById('snow-search').value.toLowerCase();
+  const pri=document.getElementById('snow-priority').value;
+  const stat=document.getElementById('snow-status').value;
+
+  let filtered=snowData.filter(s=>{
+    if(search && !s.ticket.toLowerCase().includes(search) && !s.vm.toLowerCase().includes(search)) return false;
+    if(pri && s.priority!==pri) return false;
+    if(stat && s.status!==stat) return false;
+    return true;
+  });
+  const start=(snowPage-1)*snowPageSize;
+  const paged=filtered.slice(start,start+snowPageSize);
+  const tbody=document.getElementById('snow-tbody');
+  tbody.innerHTML=paged.map((s,idx)=>{
+    const actualIdx=snowData.indexOf(s);
+    const priCls={'Critical':'priority-critical','High':'priority-high','Medium':'priority-medium','Low':'priority-low'}[s.priority]||'';
+    const stCls={'Approved':'status-ok','Rejected':'status-off','Pending':'status-warn'}[s.status]||'status-warn';
+    const actions = s.status==='Pending'
+      ? `<div style="display:flex;gap:4px">
+           <button class="btn btn-sm btn-green" onclick="approveSnow(${actualIdx})">✓</button>
+           <button class="btn btn-sm btn-red" onclick="rejectSnow(${actualIdx})">✕</button>
+           <button class="btn btn-sm btn-outline" onclick="analyzeSnow(${actualIdx})">📊</button>
+         </div>`
+      : `<span class="status ${stCls}">${s.status}</span>`;
+    return `<tr>
+      <td><a href="#" onclick="return false" style="color:var(--primary);font-weight:500">${s.ticket}</a></td>
+      <td>${s.vm}</td>
+      <td>${s.cluster}</td>
+      <td>${s.cpuBefore}→${s.cpuReq} vCPU</td>
+      <td>${s.memBefore}→${s.memReq} GB</td>
+      <td>${s.storBefore}→${s.storReq} GB</td>
+      <td>${s.requester}</td>
+      <td class="${priCls}">${s.priority}</td>
+      <td>${s.submitted}</td>
+      <td style="color:var(--danger);font-weight:600">+$${s.costDelta}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+
+  const total=Math.ceil(filtered.length/snowPageSize);
+  const pg=document.getElementById('snow-pagination');
+  pg.innerHTML='';
+  for(let i=1;i<=total;i++){
+    const b=document.createElement('button');
+    b.className='page-btn'+(i===snowPage?' active':'');
+    b.textContent=i;
+    b.onclick=(()=>{const p=i;return()=>{snowPage=p;renderSnowTable();};})();
+    pg.appendChild(b);
+  }
+}
+
+function filterSnow(){ snowPage=1; renderSnowTable(); }
+
+function approveSnow(idx){
+  snowData[idx].status='Approved';
+  renderSnowTable();
+  showToast('Ticket '+snowData[idx].ticket+' approved','success');
+}
+function rejectSnow(idx){
+  snowData[idx].status='Rejected';
+  renderSnowTable();
+  showToast('Ticket '+snowData[idx].ticket+' rejected','warning');
+}
+function analyzeSnow(idx){
+  const s=snowData[idx];
+  navigate(document.querySelector('[data-page="resource-upgrade"]'),'resource-upgrade');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector('[data-page="resource-upgrade"]').classList.add('active');
+  setTimeout(()=>{
+    document.getElementById('vm-name').value=s.vm;
+    document.getElementById('vcpu-req').value=s.cpuReq;
+    document.getElementById('vcpu-val').textContent=s.cpuReq+' vCPU';
+    document.getElementById('mem-req').value=s.memReq;
+    document.getElementById('mem-val').textContent=s.memReq+' GB';
+    document.getElementById('stor-req').value=s.storReq;
+    document.getElementById('stor-val').textContent=s.storReq+' GB';
+    switchUpgradeTab(document.querySelector('.tab'),'tab-adhoc');
+    updatePreview();
+  },100);
+}
+
+// ─────────────────────────────────────────────
+// SLOT MODAL
+// ─────────────────────────────────────────────
+function showSlotModal(){
+  const container=document.getElementById('slot-grid-container');
+  let html='';
+  for(let chassis=1;chassis<=4;chassis++){
+    html+=`<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:600;color:var(--neutral-600);margin-bottom:6px">Chassis 0${chassis}</div><div class="slot-grid" style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:6px">`;
+    for(let slot=1;slot<=8;slot++){
+      const r=Math.random();
+      const type=r<0.72?'used':r<0.82?'maintenance':'empty';
+      const label=type==='empty'?'—':'B'+slot;
+      html+=`<div class="slot ${type}" title="Slot ${slot}: ${type.charAt(0).toUpperCase()+type.slice(1)}">${label}</div>`;
+    }
+    html+='</div></div>';
+  }
+  container.innerHTML=html;
+  document.getElementById('slot-modal').classList.add('open');
+}
+
+// ─────────────────────────────────────────────
+// MODALS & TOAST
+// ─────────────────────────────────────────────
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+let toastTimer;
+function showToast(msg, type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='show '+(type||'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ t.className=''; },3000);
+}
+
+// Click outside modal to close
+document.addEventListener('click', e=>{
+  if(e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('open');
+  }
+});
+
+// ─────────────────────────────────────────────
+// CONFIG SAVE
+// ─────────────────────────────────────────────
+function savePricing(){
+  PRICING.cpu=parseFloat(document.getElementById('price-cpu').value)||12.5;
+  PRICING.mem=parseFloat(document.getElementById('price-mem').value)||2.75;
+  PRICING.stor=parseFloat(document.getElementById('price-stor').value)||0.18;
+  PRICING.vcpuLicense=parseFloat(document.getElementById('price-vsphere').value)||3.2;
+  THRESHOLDS.cpu=parseFloat(document.getElementById('thr-cpu').value)||80;
+  THRESHOLDS.mem=parseFloat(document.getElementById('thr-mem').value)||85;
+  THRESHOLDS.stor=parseFloat(document.getElementById('thr-stor').value)||75;
+  showToast('Settings saved successfully','success');
+}
+
+// ─────────────────────────────────────────────
+// MULTI-CLUSTER MOCK DATA
+// ─────────────────────────────────────────────
+const CLUSTER_DATA = Array.from({length:42},(_,i)=>{
+  const loc = LOCATIONS[i%4];
+  const dom = DOMAINS[i%DOMAINS.length].domain;
+  const cpu = rnd(30,94), mem = rnd(40,96), stor = rnd(20,80);
+  return {
+    name: 'cluster-'+['prod','dev','mgmt','dr','analytics'][i%5]+'-'+String(i+1).padStart(2,'0'),
+    location: loc, domain: dom,
+    vms: rnd(18,280), cpu, mem, stor,
+    health: cpu>85||mem>90?'Critical': cpu>70||mem>80?'Warning':'Healthy'
+  };
+});
+
+// ─────────────────────────────────────────────
+// DASHBOARD CLUSTER TABLE
+// ─────────────────────────────────────────────
+let dashClusterPage=1;
+const dashClusterPageSize=8;
+
+function renderDashClusters(){
+  const search=(document.getElementById('dash-cluster-search').value||'').toLowerCase();
+  const loc=document.getElementById('dash-cluster-loc').value;
+  const sortKey=document.getElementById('dash-cluster-sort').value;
+
+  let data=[...CLUSTER_DATA].filter(c=>{
+    if(search && !c.name.includes(search) && !c.location.toLowerCase().includes(search)) return false;
+    if(loc && c.location!==loc) return false;
+    return true;
+  }).sort((a,b)=>b[sortKey==='name'?'name':'cpu']- (sortKey==='name'?0:a[sortKey==='cpu'?'cpu':sortKey==='mem'?'mem':'stor']));
+  if(sortKey==='name') data.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sortKey==='cpu') data.sort((a,b)=>b.cpu-a.cpu);
+  else if(sortKey==='mem') data.sort((a,b)=>b.mem-a.mem);
+  else data.sort((a,b)=>b.stor-a.stor);
+
+  const start=(dashClusterPage-1)*dashClusterPageSize;
+  const paged=data.slice(start,start+dashClusterPageSize);
+  document.getElementById('dash-cluster-tbody').innerHTML=paged.map(c=>{
+    const cpuFill=c.cpu>80?'fill-red':c.cpu>65?'fill-yellow':'fill-green';
+    const memFill=c.mem>85?'fill-red':c.mem>70?'fill-yellow':'fill-green';
+    const storFill=c.stor>75?'fill-red':c.stor>55?'fill-yellow':'fill-green';
+    const hCls={'Critical':'status-off','Warning':'status-warn','Healthy':'status-ok'}[c.health];
+    return `<tr>
+      <td><strong>${c.name}</strong></td><td>${c.location}</td><td>${c.domain}</td><td>${c.vms}</td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-wrap" style="width:70px"><div class="progress-fill ${cpuFill}" style="width:${c.cpu}%"></div></div><span style="font-size:11px;font-weight:600">${c.cpu}%</span></div></td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-wrap" style="width:70px"><div class="progress-fill ${memFill}" style="width:${c.mem}%"></div></div><span style="font-size:11px;font-weight:600">${c.mem}%</span></div></td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-wrap" style="width:70px"><div class="progress-fill ${storFill}" style="width:${c.stor}%"></div></div><span style="font-size:11px;font-weight:600">${c.stor}%</span></div></td>
+      <td><span class="status ${hCls}">${c.health}</span></td>
+    </tr>`;
+  }).join('');
+
+  const total=Math.ceil(data.length/dashClusterPageSize);
+  const pg=document.getElementById('dash-cluster-pagination');
+  pg.innerHTML='';
+  for(let i=1;i<=total;i++){
+    const b=document.createElement('button');
+    b.className='page-btn'+(i===dashClusterPage?' active':'');
+    b.textContent=i;
+    b.onclick=(()=>{const p=i;return()=>{dashClusterPage=p;renderDashClusters();};})();
+    pg.appendChild(b);
+  }
+}
+
+// ─────────────────────────────────────────────
+// LAST REFRESHED
+// ─────────────────────────────────────────────
+function setRefreshedTime(){
+  const now=new Date();
+  document.getElementById('last-refreshed').textContent=
+    now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+
+    ' '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+function refreshDashboard(){
+  setRefreshedTime();
+  showToast('Dashboard data refreshed','success');
+}
+
+// ─────────────────────────────────────────────
+// BU USAGE DATA & RENDER
+// ─────────────────────────────────────────────
+const BUS = [
+  {bu:'Digital & Technology',div:'Technology',vms:1840,cpu_alloc:8200,cpu_eff:72,mem_alloc:32768,mem_eff:68,stor:420,stor_eff:55,cost:487200},
+  {bu:'Healthcare Operations',div:'Clinical',vms:1240,cpu_alloc:5600,cpu_eff:61,mem_alloc:22000,mem_eff:73,stor:310,stor_eff:48,cost:362100},
+  {bu:'Pharmacy & Benefits',div:'Pharmacy',vms:980,cpu_alloc:4400,cpu_eff:58,mem_alloc:17600,mem_eff:65,stor:260,stor_eff:42,cost:298400},
+  {bu:'Data & Analytics',div:'Technology',vms:720,cpu_alloc:3200,cpu_eff:81,mem_alloc:12800,mem_eff:84,stor:580,stor_eff:71,cost:241800},
+  {bu:'Enterprise IT',div:'IT',vms:540,cpu_alloc:2400,cpu_eff:49,mem_alloc:9600,mem_eff:52,stor:180,stor_eff:38,cost:187500},
+  {bu:'Finance & Actuarial',div:'Finance',vms:380,cpu_alloc:1700,cpu_eff:38,mem_alloc:6800,mem_eff:41,stor:90,stor_eff:29,cost:124000},
+  {bu:'Sales & Marketing',div:'Commercial',vms:310,cpu_alloc:1400,cpu_eff:44,mem_alloc:5600,mem_eff:47,stor:75,stor_eff:33,cost:98700},
+  {bu:'Human Resources',div:'Corp Services',vms:190,cpu_alloc:850,cpu_eff:31,mem_alloc:3400,mem_eff:35,stor:42,stor_eff:22,cost:58400},
+  {bu:'Legal & Compliance',div:'Corp Services',vms:160,cpu_alloc:720,cpu_eff:27,mem_alloc:2880,mem_eff:30,stor:38,stor_eff:19,cost:49200},
+  {bu:'Customer Experience',div:'Operations',vms:280,cpu_alloc:1260,cpu_eff:66,mem_alloc:5040,mem_eff:71,stor:68,stor_eff:44,cost:89300},
+  {bu:'Network & Security',div:'IT',vms:420,cpu_alloc:1900,cpu_eff:55,mem_alloc:7600,mem_eff:60,stor:95,stor_eff:40,cost:138600},
+  {bu:'Provider Relations',div:'Clinical',vms:210,cpu_alloc:940,cpu_eff:43,mem_alloc:3760,mem_eff:46,stor:50,stor_eff:28,cost:67800},
+];
+
+let buPage=1;
+const buPageSize=8;
+
+function effBadge(v){
+  if(v>=70) return `<span class="stat-badge badge-green">${v}%</span>`;
+  if(v>=50) return `<span class="stat-badge badge-yellow">${v}%</span>`;
+  return `<span class="stat-badge badge-red">${v}%</span>`;
+}
+
+function renderBUTable(){
+  const search=(document.getElementById('bu-search').value||'').toLowerCase();
+  const sortKey=document.getElementById('bu-sort').value;
+  let data=[...BUS].filter(b=>!search||b.bu.toLowerCase().includes(search));
+  const sk={cpu_alloc:'cpu_alloc',cpu_eff:'cpu_eff',mem_eff:'mem_eff',cost:'cost'}[sortKey]||'cpu_alloc';
+  data.sort((a,b)=>b[sk]-a[sk]);
+
+  const start=(buPage-1)*buPageSize;
+  const paged=data.slice(start,start+buPageSize);
+  document.getElementById('bu-tbody').innerHTML=paged.map(b=>{
+    const score=Math.round((b.cpu_eff+b.mem_eff+b.stor_eff)/3);
+    const scoreBadge=score>=65?'badge-green':score>=45?'badge-yellow':'badge-red';
+    return `<tr>
+      <td><strong>${b.bu}</strong></td><td>${b.div}</td><td>${b.vms.toLocaleString()}</td>
+      <td>${b.cpu_alloc.toLocaleString()}</td><td>${effBadge(b.cpu_eff)}</td>
+      <td>${b.mem_alloc.toLocaleString()}</td><td>${effBadge(b.mem_eff)}</td>
+      <td>${b.stor}</td><td>${effBadge(b.stor_eff)}</td>
+      <td>$${b.cost.toLocaleString()}</td>
+      <td><span class="stat-badge ${scoreBadge}">${score}%</span></td>
+    </tr>`;
+  }).join('');
+
+  const total=Math.ceil(data.length/buPageSize);
+  const pg=document.getElementById('bu-pagination');
+  pg.innerHTML='';
+  for(let i=1;i<=total;i++){
+    const b2=document.createElement('button');
+    b2.className='page-btn'+(i===buPage?' active':'');
+    b2.textContent=i;
+    b2.onclick=(()=>{const p=i;return()=>{buPage=p;renderBUTable();};})();
+    pg.appendChild(b2);
+  }
+
+  // Under-utilized
+  const under=[...BUS].filter(b=>b.cpu_eff<40).sort((a,b)=>a.cpu_eff-b.cpu_eff).slice(0,5);
+  document.getElementById('bu-underutil-tbody').innerHTML=under.map(b=>{
+    const savings=Math.round(b.cpu_alloc*(1-b.cpu_eff/100)*0.5*PRICING.cpu);
+    return `<tr><td>${b.bu}</td><td>${b.cpu_alloc.toLocaleString()}</td><td><span class="stat-badge badge-red">${b.cpu_eff}%</span></td><td style="color:var(--success);font-weight:600">$${savings.toLocaleString()}/mo</td></tr>`;
+  }).join('');
+
+  // High-util
+  const high=[...BUS].filter(b=>b.cpu_eff>65).sort((a,b)=>b.cpu_eff-a.cpu_eff).slice(0,5);
+  document.getElementById('bu-highutil-tbody').innerHTML=high.map(b=>{
+    const headroom=Math.round(b.cpu_alloc*(1-b.cpu_eff/100));
+    return `<tr><td>${b.bu}</td><td>${b.cpu_alloc.toLocaleString()}</td><td><span class="stat-badge badge-yellow">${b.cpu_eff}%</span></td><td>${headroom.toLocaleString()}</td></tr>`;
+  }).join('');
+}
+
+function renderBUPage(){ buPage=1; renderBUTable(); }
+
+// ─────────────────────────────────────────────
+// INFRA RUNWAY DATA & RENDER
+// ─────────────────────────────────────────────
+const RUNWAY_DATA = CLUSTER_DATA.map(c=>{
+  const growthCpu=+(Math.random()*3+0.5).toFixed(1);
+  const growthMem=+(Math.random()*3.5+0.8).toFixed(1);
+  const growthStor=+(Math.random()*2+0.3).toFixed(1);
+  const moToExhaust=(r,g)=> g<=0?999: Math.floor((100-r)/g);
+  const addMonths=(m)=>{ const d=new Date(); d.setMonth(d.getMonth()+m); return d.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
+  const cpuMo=moToExhaust(c.cpu,growthCpu);
+  const memMo=moToExhaust(c.mem,growthMem);
+  const storMo=moToExhaust(c.stor,growthStor);
+  return {...c, growthCpu, growthMem, growthStor,
+    cpu90: Math.min(99,+(c.cpu+growthCpu*3).toFixed(0)),
+    cpu180: Math.min(99,+(c.cpu+growthCpu*6).toFixed(0)),
+    mem90: Math.min(99,+(c.mem+growthMem*3).toFixed(0)),
+    mem180: Math.min(99,+(c.mem+growthMem*6).toFixed(0)),
+    stor90: Math.min(99,+(c.stor+growthStor*3).toFixed(0)),
+    stor180: Math.min(99,+(c.stor+growthStor*6).toFixed(0)),
+    cpuExhaust: addMonths(cpuMo), memExhaust: addMonths(memMo), storExhaust: addMonths(storMo),
+    cpuMo, memMo, storMo
+  };
+});
+
+let runwayPage=1;
+const runwayPageSize=10;
+
+function renderRunwayTable(){
+  const res=document.getElementById('runway-resource').value;
+  const loc=document.getElementById('runway-loc').value;
+  let data=[...RUNWAY_DATA].filter(c=>!loc||c.location===loc)
+    .sort((a,b)=>a[res+'Mo']-b[res+'Mo']);
+
+  const start=(runwayPage-1)*runwayPageSize;
+  const paged=data.slice(start,start+runwayPageSize);
+  document.getElementById('runway-tbody').innerHTML=paged.map(c=>{
+    const cur=c[res], f90=c[res+'90'], f180=c[res+'180'];
+    const exhaust=c[res+'Exhaust'], mo=c[res+'Mo'];
+    const riskCls=mo<6?'badge-red':mo<12?'badge-yellow':'badge-green';
+    const action=mo<6?'⚠️ Plan procurement':mo<12?'📋 Monitor':'✓ Sufficient';
+    return `<tr>
+      <td><strong>${c.name}</strong></td><td>${c.location}</td>
+      <td><span style="font-weight:600">${cur}%</span></td>
+      <td>+${c['growth'+res.charAt(0).toUpperCase()+res.slice(1)]}%/mo</td>
+      <td>${f90>80?`<span style="color:var(--danger);font-weight:600">${f90}%</span>`:f90>65?`<span style="color:var(--warning);font-weight:600">${f90}%</span>`:`${f90}%`}</td>
+      <td>${f180>80?`<span style="color:var(--danger);font-weight:600">${f180}%</span>`:f180>65?`<span style="color:var(--warning);font-weight:600">${f180}%</span>`:`${f180}%`}</td>
+      <td><span class="stat-badge ${riskCls}">${exhaust}</span></td>
+      <td style="font-size:12px">${action}</td>
+    </tr>`;
+  }).join('');
+
+  const total=Math.ceil(data.length/runwayPageSize);
+  const pg=document.getElementById('runway-pagination');
+  pg.innerHTML='';
+  for(let i=1;i<=total;i++){
+    const b=document.createElement('button');
+    b.className='page-btn'+(i===runwayPage?' active':'');
+    b.textContent=i;
+    b.onclick=(()=>{const p=i;return()=>{runwayPage=p;renderRunwayTable();};})();
+    pg.appendChild(b);
+  }
+}
+
+// ─────────────────────────────────────────────
+// EXEC TREND CHART (CSS bar chart)
+// ─────────────────────────────────────────────
+function renderExecTrend(){
+  const months=['Nov','Dec','Jan','Feb','Mar','Apr'];
+  const cpuVals=[54,56,57,58,60,61];
+  const memVals=[68,70,72,74,76,78];
+  const storVals=[36,38,39,40,42,43];
+  const el=document.getElementById('exec-trend');
+  el.innerHTML=months.map((m,i)=>`
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div style="display:flex;gap:2px;align-items:flex-end;height:80px">
+        <div style="width:12px;background:#f59e0b;height:${cpuVals[i]}%;border-radius:2px 2px 0 0" title="CPU ${cpuVals[i]}%"></div>
+        <div style="width:12px;background:#dc2626;height:${memVals[i]}%;border-radius:2px 2px 0 0" title="Mem ${memVals[i]}%"></div>
+        <div style="width:12px;background:#16a34a;height:${storVals[i]}%;border-radius:2px 2px 0 0" title="Stor ${storVals[i]}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--neutral-500)">${m}</div>
+    </div>
+  `).join('');
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function initApp(){
+  renderDomainTable();
+  renderServerTable();
+  renderAssignedTable();
+  renderSnowTable();
+  renderDashClusters();
+  renderBUTable();
+  renderRunwayTable();
+  renderExecTrend();
+  updatePreview();
+  initBulkRows();
+  setRefreshedTime();
+}
+
+// Enter with login
+document.getElementById('login-pass').addEventListener('keydown', e=>{
+  if(e.key==='Enter') doLogin();
+});
+</script>
+</body>
+</html>
